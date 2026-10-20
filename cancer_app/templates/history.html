@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}Historique — BUSBRA Vision{% endblock %}
+{% block content %}<main>
+  <div class="page-heading"><div><p class="eyebrow">Examens enregistrés</p><h1 class="page-title">{{ 'Corbeille' if trash else 'Historique' }}</h1><p class="muted">{{ 'Les analyses supprimées peuvent être restaurées.' if trash else 'Retrouvez les résultats, les images et les observations.' }}</p></div><div class="table-actions"><a class="btn secondary" href="{{ url_for('history') if trash else url_for('history', trash=1) }}">{{ 'Retour à l’historique' if trash else 'Corbeille' }}</a><a class="btn" href="{{ medical_home_url }}">Nouvelle analyse</a></div></div>
+  <section class="panel"><form method="get" class="filter-form">
+    {% if trash %}<input type="hidden" name="trash" value="1">{% endif %}
+    <label>Rechercher<input type="search" name="q" value="{{ request.args.get('q', '') }}" placeholder="Référence, fichier ou médecin"></label>
+    <label>Classe<select name="category"><option value="">Toutes</option>{% for code,label in [('normal','Normale'),('benign','Bénigne'),('malignant','Maligne')] %}<option value="{{ code }}" {{ 'selected' if request.args.get('category') == code }}>{{ label }}</option>{% endfor %}</select></label>
+    <label>Revue<select name="status"><option value="">Toutes</option><option value="pending" {{ 'selected' if request.args.get('status') == 'pending' }}>À examiner</option><option value="validated" {{ 'selected' if request.args.get('status') == 'validated' }}>Validée</option></select></label>
+    <label>Date<input type="date" name="date" value="{{ request.args.get('date', '') }}"></label><button class="btn secondary">Filtrer</button><a class="text-link" href="{{ url_for('history', trash=1) if trash else url_for('history') }}">Réinitialiser</a>
+  </form><p class="quiet">{{ rows|length }} résultat(s)</p>{% include '_analysis_table.html' %}</section>
+</main>{% endblock %}

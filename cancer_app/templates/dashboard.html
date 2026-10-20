@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% block title %}Tableau de bord — BUSBRA Vision{% endblock %}
+{% block content %}<main>
+  <div class="page-heading"><div><p class="eyebrow">Vue d'ensemble</p><h1 class="page-title">Tableau de bord</h1><p class="muted">{{ 'Toutes les analyses de l’équipe' if current_user.role == 'admin' else 'Vos analyses et vos examens à revoir' }}.</p></div><a class="btn" href="{{ medical_home_url }}">Nouvelle analyse →</a></div>
+  <div class="stat-grid"><div class="stat panel"><small>Analyses enregistrées</small><strong>{{ total }}</strong></div><div class="stat panel"><small>À examiner</small><strong>{{ pending }}</strong></div><div class="stat panel"><small>Revues validées</small><strong>{{ total - pending }}</strong></div></div>
+  <section class="panel"><div class="section-line"><h2>Répartition des prédictions</h2><span class="quiet">Comptages du modèle, pas des diagnostics</span></div><div class="distribution">{% for code, label in [('normal','Normales'),('benign','Bénignes'),('malignant','Malignes')] %}<div><span class="tag {{ code }}">{{ label }}</span><strong>{{ counts[code] }}</strong><div class="probability-track"><span style="width: {{ counts[code] / total * 100 if total else 0 }}%"></span></div></div>{% endfor %}</div></section>
+  <section class="panel section-space"><div class="section-line"><h2>Dernières analyses</h2><a class="text-link" href="{{ url_for('history') }}">Tout l'historique →</a></div>{% include '_analysis_table.html' %}</section>
+</main>{% endblock %}

@@ -1,0 +1,18 @@
+{
+  "architecture": "EfficientNetB0",
+  "poids_initiaux": "ImageNet",
+  "taille_image": 224,
+  "classes": [
+    "normal",
+    "benign",
+    "malignant"
+  ],
+  "fr": {
+    "normal": "Normale",
+    "benign": "Bénigne",
+    "malignant": "Maligne"
+  },
+  "pretraitement": "RGB ImageOps.pad noir vers 224x224, pixels 0..255 ; prétraitement EfficientNet interne",
+  "modele": "BUSI_EfficientNetB0_classification.keras",
+  "usage": "Prototype non clinique"
+}

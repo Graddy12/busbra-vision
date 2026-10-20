@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}Rapport {{ row.reference }} — BUSBRA Vision{% endblock %}
+{% block content %}<main class="report-container">
+  <div class="page-heading no-print"><a class="text-link" href="{{ url_for('analysis_detail', ident=row.id) }}">← Retour à l'analyse</a><button class="btn" type="button" data-print>Imprimer / enregistrer en PDF</button></div>
+  <article class="report-sheet">
+    <section class="report-summary">
+      <div class="report-header"><div><p class="eyebrow">BUSBRA Vision</p><h1>Rapport d'analyse d'échographie mammaire</h1></div><span class="tag">Prototype académique</span></div>
+      <div class="report-meta"><p><strong>Référence</strong><br>{{ row.reference }}</p><p><strong>Date de l'analyse</strong><br>{{ row.created_at|localdate }}</p><p><strong>Médecin</strong><br>{{ row.owner_name }} · {{ row.owner_specialty }}</p><p><strong>Revue humaine</strong><br>{{ 'Validée' if row.status == 'validated' else 'À examiner' }}</p></div>
+      <h2>1. Classification</h2><p>Catégorie privilégiée : <strong>{{ row.result.classification.label }}</strong>. Score : <strong>{{ '%.1f'|format(row.result.classification.confidence_percent) }} %</strong>.</p><div class="report-probabilities">{% for item in row.result.classification.probabilities %}<span>{{ item.label }} : {{ '%.2f'|format(item.percent) }} %</span>{% endfor %}</div>
+      <h2>2. Segmentation et explicabilité</h2>
+      {% if row.result.segmentation.performed %}<p>Surface segmentée : {{ '%.2f'|format(row.result.segmentation.lesion_area_percent) }} % des pixels. Seuil : {{ row.result.segmentation.threshold }}.</p>{% else %}<p><strong>Segmentation non appliquée.</strong> Aucun masque ni mesure de surface pour la classe prédite normale. La segmentation est réservée aux classes prédites bénigne et maligne.</p>{% endif %}
+      {% if row.segmentation_notice %}<p class="quiet">{{ row.segmentation_notice }}</p>{% endif %}
+      <div class="report-images">{% for kind,label in [('original','Échographie originale'),('segmentation_overlay','Superposition du masque'),('segmentation_mask','Masque binaire'),('gradcam_overlay','Grad-CAM — classe prédite')] %}{% if kind in row.images %}<figure><img src="{{ url_for('asset', ident=row.id, kind=kind) }}" alt="{{ label }}"><figcaption>{{ label }}</figcaption></figure>{% endif %}{% endfor %}</div>
+      <p class="quiet">Classification : EfficientNetB0 (BUSI). {% if row.result.segmentation.performed %}Segmentation : U-Net ResNet34 (BUS-BRA).{% else %}Segmentation non exécutée pour la classe prédite normale.{% endif %} Grad-CAM calculé sur le score avant softmax de la classe prédite ; cette carte d'attention n'est pas un masque de lésion.</p>
+    </section>
+    <section class="report-conclusion">
+      <p class="eyebrow">{{ row.reference }} · Suite du rapport</p><h2>3. Observation et revue du médecin</h2><p class="note-block">{{ row.note or 'Aucune observation saisie.' }}</p><p>Statut : <strong>{{ 'Validée' if row.status == 'validated' else 'À examiner' }}</strong>.</p>{% if row.reviewed_at %}<p>Revue par {{ row.reviewer }}, le {{ row.reviewed_at|localdate }}.</p>{% else %}<p>Aucune revue humaine enregistrée.</p>{% endif %}
+      <h2>4. Interprétation automatique des résultats</h2>{% for paragraph in interpretation %}<p>{{ paragraph }}</p>{% endfor %}
+      <p class="report-end">Fin du rapport · BUSBRA Vision · Usage académique uniquement</p>
+    </section>
+  </article>
+</main>{% endblock %}

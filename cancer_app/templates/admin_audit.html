@@ -1,0 +1,6 @@
+{% extends 'admin_base.html' %}
+{% block title %}Journal des actions — Administration BUSBRA Vision{% endblock %}
+{% block admin_content %}<main>
+  <div class="page-heading"><div><p class="eyebrow">Administration · Traçabilité</p><h1 class="page-title">Journal des actions</h1><p class="muted">Suivez les connexions et les modifications réalisées dans le système.</p></div><span class="tag">100 dernières actions</span></div>
+  <section class="panel"><div class="table-wrap"><table><thead><tr><th>Date</th><th>Utilisateur</th><th>Action</th><th>Référence</th></tr></thead><tbody>{% for event in events %}<tr><td>{{ event.date|localdate }}</td><td>{{ event.actor }}</td><td>{{ event.action }}</td><td>{{ event.subject }}</td></tr>{% else %}<tr><td colspan="4" class="empty-table">Aucune action enregistrée.</td></tr>{% endfor %}</tbody></table></div></section>
+</main>{% endblock %}

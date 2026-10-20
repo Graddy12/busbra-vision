@@ -1,0 +1,10 @@
+{
+  "model": "unet_resnet34",
+  "tta": true,
+  "threshold": 0.5,
+  "largest": true,
+  "patient_macro_dice": 0.9118146307369528,
+  "image_macro_dice": 0.9094746594967796,
+  "patient_macro_iou": 0.8502674709133128,
+  "image_macro_iou": 0.8473076022639572
+}

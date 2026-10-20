@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+{% block title %}Nouvelle analyse — BUSBRA Vision{% endblock %}
+{% block content %}
+    <main>
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Double analyse · classification + segmentation</p>
+          <h1>Une lecture assistée,<br><em>deux modèles complémentaires.</em></h1>
+          <p class="hero-copy">
+            Importez une échographie mammaire. Le classificateur EfficientNetB0 estime
+            la catégorie, tandis que le modèle U-Net délimite la région d'intérêt.
+          </p>
+        </div>
+        <div class="model-summary" aria-label="Modèles utilisés">
+          <div><span>01</span><p><strong>EfficientNetB0</strong><br>Classification Keras</p></div>
+          <div><span>02</span><p><strong>U-Net ResNet34</strong><br>Segmentation PyTorch</p></div>
+        </div>
+      </section>
+
+      <section class="workspace" aria-label="Zone d'analyse">
+        <div class="upload-panel">
+          <div class="section-heading">
+            <p class="step">Étape 01</p>
+            <h2>Échographie source</h2>
+          </div>
+
+          <form id="analysis-form" novalidate>
+            <label class="exam-reference">Référence de l'examen (facultative)<input id="exam-reference" name="reference" maxlength="100" placeholder="Ex. DEMO-001"></label>
+            <label id="drop-zone" class="drop-zone" for="image-input">
+              <input id="image-input" name="image" type="file" accept="image/png,image/jpeg,image/bmp,image/tiff,image/webp">
+              <span class="upload-icon" aria-hidden="true">↑</span>
+              <span class="drop-title">Déposez l'image ici</span>
+              <span class="drop-help">ou cliquez pour parcourir · 16 Mo maximum</span>
+            </label>
+
+            <div id="preview-wrap" class="preview-wrap" hidden>
+              <img id="source-preview" alt="Aperçu de l'échographie sélectionnée">
+              <button id="remove-image" class="remove-image" type="button" aria-label="Retirer l'image">×</button>
+              <div class="file-meta">
+                <span id="file-name"></span>
+                <span id="file-size"></span>
+              </div>
+            </div>
+
+            <button id="analyze-button" class="analyze-button" type="submit" disabled>
+              <span>Analyser l'échographie</span>
+              <span aria-hidden="true">→</span>
+            </button>
+          </form>
+
+          <p class="privacy-note">L'image et les résultats sont enregistrés dans votre historique, accessible à vous et à l'administrateur.</p>
+        </div>
+
+        <div class="results-panel">
+          <div class="section-heading">
+            <p class="step">Étape 02</p>
+            <h2>Résultats combinés</h2>
+          </div>
+
+          <div id="empty-state" class="empty-state">
+            <div class="scan-illustration" aria-hidden="true"><span></span></div>
+            <p>Les résultats apparaîtront ici après l'analyse.</p>
+          </div>
+
+          <div id="loading-state" class="loading-state" hidden>
+            <div class="loader"><span></span><span></span><span></span></div>
+            <p>Les deux modèles examinent l'image…</p>
+            <small>Le traitement peut prendre quelques secondes selon votre ordinateur.</small>
+          </div>
+
+          <div id="error-state" class="error-state" role="alert" hidden>
+            <strong>Analyse interrompue</strong>
+            <p id="error-message"></p>
+          </div>
+
+          <div id="results" hidden>
+            <div class="classification-card">
+              <div>
+                <p class="card-kicker">Classification</p>
+                <h3 id="predicted-label">—</h3>
+              </div>
+              <div class="confidence-ring" id="confidence-ring">
+                <span id="confidence-value">0%</span>
+                <small>confiance</small>
+              </div>
+            </div>
+
+            <div id="probability-list" class="probability-list"></div>
+
+            <div class="segmentation-card">
+              <div class="card-title-row">
+                <div>
+                  <p class="card-kicker">Segmentation</p>
+                  <h3 id="segmentation-title">Visualisation</h3>
+                </div>
+                <p id="lesion-area-wrap"><strong id="lesion-area">—</strong><br><span>de l'image</span></p>
+              </div>
+              <p id="segmentation-status" class="quiet" hidden></p>
+              <img id="overlay-image" alt="Échographie avec la zone segmentée superposée">
+              <div class="image-actions">
+                <button type="button" class="view-toggle" data-view="original">Originale</button>
+                <button type="button" class="view-toggle active" data-view="overlay">Superposition</button>
+                <button type="button" class="view-toggle" data-view="mask">Masque seul</button>
+                <button type="button" class="view-toggle" data-view="gradcam">Grad-CAM</button>
+                <a id="download-result" download="segmentation.png">Télécharger</a>
+              </div>
+            </div>
+
+            <p id="inference-meta" class="inference-meta"></p>
+            <p id="gradcam-help" class="quiet">Grad-CAM : zones qui contribuent à la classification, distinctes du masque de segmentation.</p>
+            <div class="result-links"><a id="history-link" class="btn secondary">Consulter l'analyse</a><a id="report-link" class="btn">Rapport / impression</a></div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="medical-warning">
+        <span aria-hidden="true">!</span>
+        <p><strong>Important</strong> — Cet outil est une démonstration académique. Il ne remplace pas l'interprétation d'un radiologue ni un diagnostic médical.</p>
+      </aside>
+    </main>
+
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='app.js', v=5) }}" defer></script>{% endblock %}

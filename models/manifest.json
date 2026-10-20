@@ -1,0 +1,17 @@
+{
+  "release": "models-v1",
+  "models": [
+    {
+      "path": "classification_package/BUSI_EfficientNetB0_classification.keras",
+      "url": "https://github.com/Graddy12/busbra-vision/releases/download/models-v1/BUSI_EfficientNetB0_classification.keras",
+      "size": 35563792,
+      "sha256": "19166c20eb164de6356998bd3ebaeee1327d9f52c78f6fa4a5f30457197baf47"
+    },
+    {
+      "path": "segmentation_package/best_model.pt",
+      "url": "https://github.com/Graddy12/busbra-vision/releases/download/models-v1/best_model.pt",
+      "size": 293553349,
+      "sha256": "d1848332d30c3cd165e1270ae6ff04f672fbeb3f3386d6fe916f7423a44f5826"
+    }
+  ]
+}

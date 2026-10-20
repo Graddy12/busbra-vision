@@ -1,0 +1,3 @@
+{% extends 'admin_base.html' %}
+{% block title %}Modifier un utilisateur — BUSBRA Vision{% endblock %}
+{% block admin_content %}<main class="narrow-page"><a class="text-link" href="{{ url_for('admin') }}">← Administration</a><section class="panel section-space"><p class="eyebrow">Gestion du compte</p><h1 class="page-title">{{ user.name }}</h1><form method="post" class="stack-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">{% include '_user_fields.html' %}<button class="btn">Enregistrer les modifications</button></form></section></main>{% endblock %}

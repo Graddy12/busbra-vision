@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block body_class %}administration{% endblock %}
+{% block header %}
+<header class="admin-topbar no-print">
+  <a class="brand" href="{{ url_for('admin') }}"><span class="brand-mark" aria-hidden="true"></span><span>BUSBRA <strong>Vision</strong></span></a>
+  <span class="admin-area-label">Espace administration</span>
+  <div class="account-menu"><span><strong>{{ current_user.name }}</strong><small>Administrateur</small></span><form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn small secondary" type="submit">Déconnexion</button></form></div>
+</header>
+{% endblock %}
+{% block content %}
+<div class="admin-shell" data-admin-shell>
+  <aside class="admin-sidebar no-print">
+    <p class="eyebrow">Gestion du système</p>
+    <nav aria-label="Navigation administration">
+      <a href="{{ url_for('admin') }}" {% if request.endpoint in ['admin', 'edit_user'] %}aria-current="page"{% endif %}><span aria-hidden="true">01</span> Utilisateurs</a>
+      <a href="{{ url_for('admin_audit') }}" {% if request.endpoint == 'admin_audit' %}aria-current="page"{% endif %}><span aria-hidden="true">02</span> Journal des actions</a>
+    </nav>
+    <div class="admin-workspace-switch"><p class="quiet">Changer d'espace</p><a class="text-link" href="{{ url_for('medical_workspace') }}">Ouvrir l'espace médical →</a><p class="quiet">Analyses, tableau de bord et historique.</p></div>
+  </aside>
+  <div class="admin-main">{% if current_user.is_recovery %}<div class="flash-wrap"><p class="flash" role="status">Mode secours : rétablissez les accès nécessaires puis déconnectez-vous. Vos actions sont journalisées. Ce compte se gère uniquement depuis le terminal.</p></div>{% endif %}{% block admin_content %}{% endblock %}</div>
+</div>
+{% endblock %}
+{% block footer %}<footer class="no-print">BUSBRA Vision · Espace d'administration du système</footer>{% endblock %}
