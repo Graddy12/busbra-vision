@@ -84,7 +84,7 @@ def register_routes(app: Flask) -> None:
 
     @app.get("/api/health")
     def health():
-        return jsonify(status="ok", version="2.3", models=current_app.extensions["combined_predictor"].status())
+        return jsonify(status="ok", version="2.4", models=current_app.extensions["combined_predictor"].status())
 
     @app.post("/api/analyze")
     def analyze():

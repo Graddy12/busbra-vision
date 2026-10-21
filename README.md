@@ -145,6 +145,10 @@ automatiquement sur une nouvelle installation et ses secrets ne sont pas inclus
 dans l'archive de distribution. Aucune remise à zéro ni suppression des données
 n'est effectuée : cet accès sert uniquement à rétablir les accès nécessaires.
 
+Sur Railway sans accès SSH, une initialisation unique depuis une empreinte privée
+est également disponible ; voir [DEPLOYMENT.md](DEPLOYMENT.md). Elle ne remplace
+jamais un compte existant, même désactivé, et n'ajoute aucune route de maintenance.
+
 ## Historique, revue et rapports
 
 La segmentation est conditionnée à la **classe prédite** : `benign` et `malignant`

@@ -35,6 +35,7 @@ def create_app(test_config: dict | None = None, predictor=None) -> Flask:
         INFERENCE_DEVICE=os.getenv("INFERENCE_DEVICE", "cpu"),
         DATA_DIR=os.getenv("BUSBRA_DATA_DIR", str(project_root / "instance")),
         BOOTSTRAP_ADMIN_PASSWORD=os.getenv("BUSBRA_ADMIN_PASSWORD"),
+        BOOTSTRAP_RECOVERY_PASSWORD_HASH=os.getenv("BUSBRA_RECOVERY_PASSWORD_HASH"),
         PRODUCTION=os.getenv("BUSBRA_PRODUCTION", "0") == "1",
         SECRET_KEY=os.getenv("BUSBRA_SECRET_KEY") or None,
     )
@@ -56,6 +57,8 @@ def create_app(test_config: dict | None = None, predictor=None) -> Flask:
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=0, x_port=0)
 
     store = JsonStore(app.config["DATA_DIR"], app.config["BOOTSTRAP_ADMIN_PASSWORD"])
+    if app.config["BOOTSTRAP_RECOVERY_PASSWORD_HASH"]:
+        store.bootstrap_recovery(app.config["BOOTSTRAP_RECOVERY_PASSWORD_HASH"])
     app.secret_key = app.config.get("SECRET_KEY") or store.secret_key
     app.extensions["store"] = store
     init_security(app, store)

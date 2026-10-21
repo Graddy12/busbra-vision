@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 
 import pytest
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from cancer_app import create_app
 from scripts.manage_recovery import main
@@ -184,3 +184,66 @@ def test_local_command_generates_unique_password_and_never_stores_it_plaintext(a
     assert rotated != password
     assert main(["disable", *arguments]) == 0
     assert store.read("recovery")["active"] is False
+
+
+def test_private_environment_bootstraps_recovery_without_changing_users(app, monkeypatch, capsys):
+    store = app.extensions["store"]
+    users_before = (store.root / "users.json").read_bytes()
+    analyses_before = (store.root / "analyses.json").read_bytes()
+    hashed = generate_password_hash(PASSWORD, method="scrypt:32768:8:1")
+    monkeypatch.setenv("BUSBRA_RECOVERY_PASSWORD_HASH", hashed)
+    configured = create_app({"TESTING": True, "DATA_DIR": str(store.root)}, predictor=FakePredictor())
+    browser = configured.test_client()
+    assert login(browser, "secours", PASSWORD).location == "/admin"
+    page = browser.get("/admin").get_data(as_text=True)
+    assert "Mode secours" in page and "1 compte(s)" in page
+    assert (store.root / "users.json").read_bytes() == users_before
+    assert (store.root / "analyses.json").read_bytes() == analyses_before
+    assert store.read("recovery")["password_hash"] == hashed
+    assert any(e["action"] == "Initialisation du compte de secours" for e in store.events())
+    logs = capsys.readouterr().out
+    assert PASSWORD not in logs and hashed not in logs
+    assert PASSWORD not in (store.root / "recovery.json").read_text(encoding="utf-8")
+
+
+def test_bootstrap_never_overwrites_rotated_or_disabled_account(app):
+    store = app.extensions["store"]
+    hashed = generate_password_hash(PASSWORD, method="scrypt:32768:8:1")
+    assert store.bootstrap_recovery(hashed) is True
+    store.manage_recovery("rotate", NEW_PASSWORD)
+    store.manage_recovery("disable")
+    before = (store.root / "recovery.json").read_bytes()
+    assert store.bootstrap_recovery(hashed) is False
+    assert (store.root / "recovery.json").read_bytes() == before
+    assert store.read("recovery")["active"] is False
+
+
+def test_recovery_survives_removal_of_bootstrap_environment(app, monkeypatch):
+    store = app.extensions["store"]
+    hashed = generate_password_hash(PASSWORD, method="scrypt:32768:8:1")
+    store.bootstrap_recovery(hashed)
+    recovery_before = store.read("recovery")
+    monkeypatch.delenv("BUSBRA_RECOVERY_PASSWORD_HASH", raising=False)
+    restarted = create_app({"TESTING": True, "DATA_DIR": str(store.root)}, predictor=FakePredictor())
+    assert login(restarted.test_client(), "secours", PASSWORD).location == "/admin"
+    assert restarted.extensions["store"].read("recovery") == recovery_before
+
+
+@pytest.mark.parametrize("value", [PASSWORD, "pbkdf2:sha256:1$salt$untrusted", "scrypt:32768:8:1$short$invalid"])
+def test_bootstrap_refuses_plaintext_or_invalid_hashes(app, value):
+    store = app.extensions["store"]
+    with pytest.raises(ValueError, match="empreinte scrypt valide"):
+        store.bootstrap_recovery(value)
+    assert not (store.root / "recovery.json").exists()
+
+
+def test_bootstrap_cannot_shadow_a_legacy_user_named_secours(app):
+    store = app.extensions["store"]
+    with store.lock():
+        users = store.read("users")
+        users[0]["username"] = "secours"
+        store.write("users", users)
+    hashed = generate_password_hash(PASSWORD, method="scrypt:32768:8:1")
+    with pytest.raises(ValueError, match="déjà utilisé"):
+        store.bootstrap_recovery(hashed)
+    assert not (store.root / "recovery.json").exists()

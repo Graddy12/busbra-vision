@@ -49,8 +49,27 @@ vide. Modifier la variable après création ne réinitialise pas un compte exist
 
 ## Compte de secours en ligne
 
-Le compte de secours local n'est **pas** transféré. Si nécessaire, le créer
-depuis un terminal **dans le conteneur Railway**, sur le volume de production :
+Le compte de secours local n'est **pas** transféré. Deux méthodes permettent de
+créer un compte indépendant pour l'hébergement, sans route web de maintenance.
+
+### Initialisation sans SSH
+
+Définir la variable privée `BUSBRA_RECOVERY_PASSWORD_HASH` avec une empreinte
+Werkzeug `scrypt:32768:8:1` (sel aléatoire, au moins 16 caractères). Le mot de passe
+initial doit être unique et aléatoire, d'au moins 20 caractères. Transmettre
+l'empreinte par entrée standard à la CLI Railway, jamais par un fichier versionné
+ou un argument contenant le secret. Ne jamais mettre le mot de passe en clair
+dans cette variable.
+
+Au prochain démarrage, l'application crée `/data/recovery.json` uniquement s'il
+n'existe pas, puis journalise cette initialisation. Un fichier existant n'est
+jamais écrasé : une rotation ou désactivation reste donc effective. Après avoir
+vérifié la connexion `secours`, retirer la variable d'initialisation ; le compte
+persiste sur le volume et ne dépend plus de cette variable.
+
+### Maintenance depuis le conteneur
+
+Avec un accès terminal au conteneur Railway, la création reste possible ainsi :
 
 ```text
 python -m scripts.manage_recovery create

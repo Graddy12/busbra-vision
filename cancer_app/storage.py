@@ -144,6 +144,34 @@ class JsonStore:
                 return recovery
             return next((u for u in self.read("users") if u["id"] == ident), None)
 
+    @staticmethod
+    def _new_recovery():
+        return {
+            "id": f"recovery-{uuid.uuid4().hex}", "username": RECOVERY_USERNAME,
+            "name": "Administrateur de secours", "specialty": "Maintenance",
+            "role": "admin", "active": True, "is_recovery": True,
+            "auth_version": 1, "created_at": now(),
+        }
+
+    def bootstrap_recovery(self, password_hash):
+        """One-time deployment setup, never a password reset or reactivation."""
+        with self.lock():
+            # A disabled, rotated or even damaged existing file must not be overwritten.
+            if (self.root / "recovery.json").exists():
+                return False
+            if not isinstance(password_hash, str) or not re.fullmatch(
+                r"scrypt:32768:8:1\$[a-zA-Z0-9]{16,64}\$[0-9a-f]{128}", password_hash
+            ):
+                raise ValueError("BUSBRA_RECOVERY_PASSWORD_HASH exige une empreinte scrypt valide, pas un mot de passe en clair.")
+            if any(u["username"] == RECOVERY_USERNAME for u in self.read("users")):
+                raise ValueError("L'identifiant secours est déjà utilisé par un compte ordinaire.")
+            recovery = self._new_recovery()
+            recovery.update(password_hash=password_hash, updated_at=now())
+            self.write("recovery", recovery)
+            actor = {"id": "deployment-bootstrap", "username": "configuration", "name": "Configuration privée du déploiement"}
+            self._audit(actor, "Initialisation du compte de secours", RECOVERY_USERNAME)
+            return True
+
     def manage_recovery(self, operation, password=None):
         """Local maintenance only: no HTTP endpoint and no default master password."""
         if operation not in {"create", "rotate", "disable"}:
@@ -157,12 +185,7 @@ class JsonStore:
                     raise ValueError("Le compte de secours existe déjà. Utilisez rotate pour renouveler son accès.")
                 if any(u["username"] == RECOVERY_USERNAME for u in self.read("users")):
                     raise ValueError("L'identifiant secours est déjà utilisé. Renommez ce compte avant la création.")
-                recovery = {
-                    "id": f"recovery-{uuid.uuid4().hex}", "username": RECOVERY_USERNAME,
-                    "name": "Administrateur de secours", "specialty": "Maintenance",
-                    "role": "admin", "active": True, "is_recovery": True,
-                    "auth_version": 1, "created_at": now(),
-                }
+                recovery = self._new_recovery()
             elif not recovery:
                 raise ValueError("Aucun compte de secours configuré. Utilisez create.")
             else:
