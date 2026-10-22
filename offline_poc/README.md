@@ -62,9 +62,13 @@ n'est pas non plus un mode de lancement pris en charge.
 - Test matériel réalisé sur PC dans Edge. L'affichage mobile a été contrôlé, mais les
   performances et la mémoire doivent encore être mesurées sur un vrai téléphone.
 - PNG/JPEG opaques uniquement ; 16 Mo par fichier et 4 millions de pixels maximum.
-- Ce prototype n'a pas encore de filtre fiable « échographie mammaire / autre image ».
-  Un fichier techniquement valide peut donc être hors domaine : ne pas interpréter
-  sa classification comme une validation de la nature de l'image.
+- Un filtre local contrôle les couleurs, le contraste, l'entropie et la texture avant
+  toute inférence : photos couleur, aplats et captures/graphismes incompatibles sont
+  refusés sans analyse ni enregistrement. Seul le mode B en niveaux de gris est pris
+  en charge (pas le Doppler couleur). Ce filtre heuristique n'est pas un détecteur
+  médical validé : certaines autres images en niveaux de gris peuvent encore passer,
+  et une échographie de qualité insuffisante peut être rejetée. Un détecteur dédié
+  entraîné sur échographies ET images hors domaine reste nécessaire pour aller plus loin.
 - Pas encore de Grad-CAM hors ligne, de comptes, de tableau de bord partagé ni de
   synchronisation. Un retour médecin local ne modifie pas les données de la plateforme
   et ne déclenche aucun apprentissage du modèle.

@@ -5,6 +5,7 @@
   <meta name="theme-color" content="#084c4d"><meta name="description" content="Espace BUSBRA Vision pour l'analyse locale hors ligne.">
   <link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./styles.css"><title>Analyser — BUSBRA Vision</title>
+  <script src="./preprocess.js" defer></script>
   <script src="./app.js" defer></script>
 </head>
 <body>
@@ -46,7 +47,7 @@
             <input id="image" type="file" accept="image/png,image/jpeg" disabled>
             <span class="upload-icon" aria-hidden="true">↑</span>
             <span class="drop-title">Déposez l'image ici</span>
-            <span class="drop-help">ou cliquez pour parcourir · PNG/JPEG · 16 Mo maximum</span>
+            <span class="drop-help">Échographie mammaire en niveaux de gris uniquement · PNG/JPEG · 16 Mo maximum</span>
           </label>
           <div id="preview-wrap" class="preview-wrap" hidden>
             <img id="source-preview" alt="Aperçu de l'échographie sélectionnée">

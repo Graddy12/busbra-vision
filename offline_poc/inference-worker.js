@@ -20,6 +20,7 @@ async function analyze(rgb, width, height, id) {
   if (width < 32 || height < 32 || width * height > 4000000 || rgb.length !== width * height * 3) {
     throw new Error("Dimensions non prises en charge par ce prototype (32 px minimum, 4 millions de pixels maximum).");
   }
+  OfflinePreprocess.validateUltrasound(rgb, width, height);
   const started = performance.now();
   self.postMessage({ id, progress: "Classification locale…" });
   const pixels = OfflinePreprocess.classificationInput(rgb, width, height, manifest.classifier.size);

@@ -12,6 +12,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageOps
 
+from .image_validation import validate_ultrasound_image
 from .segmentation_policy import enforce_segmentation_policy, segmentation_applicable, skipped_segmentation
 
 
@@ -373,6 +374,7 @@ def normalize_uploaded_image(payload: bytes) -> Image.Image:
 
     if image.width < 32 or image.height < 32:
         raise ValueError("L'image doit mesurer au moins 32 × 32 pixels.")
+    validate_ultrasound_image(image)
     return image
 
 

@@ -1,5 +1,5 @@
 "use strict";
-const CACHE = "busbra-offline-poc-v9";
+const CACHE = "busbra-offline-poc-v10";
 const $ = selector => document.querySelector(selector);
 const pending = new Map();
 let worker, manifest, requestId = 0, busy = false, ready = false, selection = null, lastResult = null;
@@ -439,6 +439,7 @@ async function selectImage(file) {
       if (rgba.data[i * 4 + 3] !== 255) throw new Error("Ce prototype exige une image opaque, sans transparence.");
       rgb.set(rgba.data.subarray(i * 4, i * 4 + 3), i * 3);
     }
+    OfflinePreprocess.validateUltrasound(rgb, width, height);
     const fileBytes = await file.arrayBuffer();
     const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", fileBytes))]
       .map(byte => byte.toString(16).padStart(2, "0")).join("");

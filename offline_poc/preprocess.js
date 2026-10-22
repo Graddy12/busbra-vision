@@ -1,11 +1,50 @@
 /* Deterministic preprocessing, without canvas resizing or external libraries.
  * Pillow bilinear uses a separable antialiasing filter with 22-bit coefficients.
  * OpenCV INTER_LINEAR uses half-pixel coordinates and 11-bit RGB coefficients.
- * This is a technical compatibility layer, not image-domain validation.
+ * Input screening is heuristic, not a clinically validated domain detector.
  */
 (function (scope) {
   "use strict";
   const f32 = Math.fround;
+  function validateUltrasound(rgb, width, height) {
+    const rejection = "Image refusée : contenu incompatible avec une échographie mammaire en niveaux de gris (mode B), ou qualité insuffisante. Importez l'image échographique originale, sans graphique ni capture d'écran.";
+    if (width < 32 || height < 32 || width / height < .4 || width / height > 2.5
+        || rgb.length !== width * height * 3) throw new Error(rejection);
+    // Same central crop, sampling and thresholds as cancer_app/image_validation.py.
+    const step = Math.max(1, Math.ceil(Math.max(width, height) / 512));
+    const left = Math.floor(width / 8), top = Math.floor(height / 8);
+    const columns = Math.ceil((width - 2 * left) / step);
+    const rows = Math.ceil((height - 2 * top) / step);
+    const gray = new Uint8Array(columns * rows), hist = new Uint32Array(256);
+    let count = 0, color = 0, sum = 0, squares = 0, midtones = 0;
+    for (let y = top; y < height - top; y += step) for (let x = left; x < width - left; x += step) {
+      const i = (y * width + x) * 3, r = rgb[i], g = rgb[i + 1], b = rgb[i + 2];
+      const value = Math.floor((r + g + b) / 3);
+      gray[count++] = value; hist[value]++; sum += value; squares += value * value;
+      if (Math.max(r, g, b) - Math.min(r, g, b) > 18) color++;
+      if (value > 20 && value < 235) midtones++;
+    }
+    let entropy = 0, textured = 0, edges = 0;
+    for (const frequency of hist) if (frequency) {
+      const probability = frequency / count;
+      entropy -= probability * Math.log2(probability);
+    }
+    for (let y = 0; y < rows; y++) for (let x = 0; x < columns; x++) {
+      const i = y * columns + x, value = gray[i];
+      if (x && Math.abs(value - gray[i - 1]) > 60) edges++;
+      if (y && Math.abs(value - gray[i - columns]) > 60) edges++;
+      if (x && y && x < columns - 1 && y < rows - 1
+          && Math.abs(4 * value - gray[i - 1] - gray[i + 1] - gray[i - columns] - gray[i + columns]) > 12) textured++;
+    }
+    const features = { color_fraction: color / count,
+      std: Math.sqrt(Math.max(0, squares / count - (sum / count) ** 2)), entropy,
+      midtone_fraction: midtones / count, texture_fraction: textured / ((rows - 2) * (columns - 2)),
+      edge_fraction: edges / ((rows - 1) * columns + rows * (columns - 1)) };
+    if (features.color_fraction > .08 || features.std < 12 || features.entropy < 4.5
+        || features.midtone_fraction < .25 || features.texture_fraction < .08
+        || features.edge_fraction > .18) throw new Error(rejection);
+    return features;
+  }
   function roundEven(value) {
     const base = Math.floor(value), fraction = value - base;
     return fraction === .5 ? base + Math.abs(base % 2) : Math.round(value);
@@ -146,7 +185,7 @@
     if (bestStart >= 0) { visited.fill(0); flood(bestStart, position => { result[position] = 1; }); }
     return result;
   }
-  const api = { roundEven, geometry, resizePillow, resizeLinearRGB, classificationInput,
+  const api = { validateUltrasound, roundEven, geometry, resizePillow, resizeLinearRGB, classificationInput,
     segmentationInput, restoreProbability, largestComponent };
   scope.OfflinePreprocess = api;
   if (typeof module !== "undefined") module.exports = api;

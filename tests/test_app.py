@@ -39,7 +39,9 @@ class FakePredictor:
 
 def png_bytes(size=(64, 64)):
     buffer = io.BytesIO()
-    Image.new("RGB", size, (30, 30, 30)).save(buffer, "PNG")
+    # Textured grayscale fixture: a flat square is no longer a valid analysis input.
+    gray = np.random.default_rng(42).integers(35, 125, (size[1], size[0]), dtype=np.uint8)
+    Image.fromarray(gray).convert("RGB").save(buffer, "PNG")
     return buffer.getvalue()
 
 
