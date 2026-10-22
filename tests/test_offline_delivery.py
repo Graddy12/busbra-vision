@@ -1,0 +1,58 @@
+"""Safety checks for the isolated public static demo, without loading models."""
+import importlib.util
+import io
+from pathlib import Path
+
+import pytest
+
+
+ROOT = Path(__file__).resolve().parents[1]
+spec = importlib.util.spec_from_file_location("offline_delivery_server", ROOT / "offline_poc" / "server.py")
+server = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(server)
+
+
+class Probe:
+    def __init__(self, path):
+        self.path = path
+        self.errors = []
+        self.headers = {}
+        self.wfile = io.BytesIO()
+
+    def send_error(self, code, *_):
+        self.errors.append(code)
+
+    def send_response(self, code):
+        self.status = code
+
+    def send_header(self, key, value):
+        self.headers[key] = value
+
+    def end_headers(self):
+        pass
+
+
+@pytest.mark.parametrize("path", ["/instance/users.json", "/instance/analyses.json", "/server.py",
+                                 "/README.md", "/../instance/users.json", "/%2e%2e/instance/users.json"])
+def test_public_laboratory_never_serves_application_data_or_source(path):
+    probe = Probe(path)
+    server.Handler.do_GET(probe)
+    server.Handler.do_HEAD(probe)
+    assert probe.errors == [404, 404]
+
+
+def test_public_laboratory_refuses_uploads_and_server_analysis():
+    probe = Probe("/api/analyze")
+    server.Handler.do_POST(probe)
+    assert probe.errors == [405]
+
+
+def test_health_exposes_no_credentials_or_medical_data():
+    probe = Probe("/health")
+    server.Handler.do_GET(probe)
+    assert probe.status == 200
+    assert b"static-delivery-only" in probe.wfile.getvalue()
+    assert set(server.PUBLIC) == {"/", "/index.html", "/styles.css", "/app.js", "/preprocess.js",
+        "/inference-worker.js", "/sw.js", "/manifest.webmanifest", "/icon.svg", "/assets-manifest.json",
+        "/ONNX_RUNTIME_LICENSE.txt", "/vendor/ort.wasm.min.js", "/vendor/ort-wasm-simd-threaded.mjs",
+        "/vendor/ort-wasm-simd-threaded.wasm", "/models/classification.onnx", "/models/segmentation.onnx"}

@@ -1,0 +1,4 @@
+# Optional tooling only; the Flask production environment is unchanged.
+onnx==1.22.0
+onnxruntime==1.23.2
+ml-dtypes==0.5.4

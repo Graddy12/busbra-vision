@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#153c48"><meta name="description" content="Preuve de faisabilité locale d'analyse d'échographies sans serveur.">
+  <link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css"><title>BUSBRA Vision — laboratoire hors ligne</title>
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <header><a class="brand" href="./"><img src="./icon.svg" alt="" width="38" height="38">BUSBRA <span>Vision</span></a><span id="network" class="badge">Connexion…</span></header>
+  <main>
+    <p class="eyebrow">Laboratoire technique · PWA</p><h1>Analyser, même<br><em>sans connexion.</em></h1>
+    <p class="lead">Les deux modèles s’exécutent sur cet appareil. Aucun appel à Flask et aucun envoi de l’image au serveur pendant l’analyse.</p>
+    <aside class="notice"><strong>Prototype académique isolé — pas un diagnostic.</strong> Utiliser uniquement les images publiques de démonstration. Ce laboratoire ne possède ni connexion médecin, ni synchronisation, ni historique persistant. Il ne vérifie pas encore qu’une image est une échographie mammaire. Le Grad-CAM n’est pas inclus dans cette preuve de faisabilité.</aside>
+    <div class="layout">
+      <section class="panel"><div class="section-title"><span class="step">01</span><h2>Préparer cet appareil</h2></div>
+        <p>Télécharger une seule fois l’interface, le moteur et les deux modèles FP32. Conserver l’onglet ouvert pendant la préparation.</p>
+        <p id="download-size" class="muted">Modèles : environ 115 Mo, plus le moteur.</p>
+        <button id="prepare" type="button">Préparer le mode hors ligne</button>
+        <progress id="progress" max="100" value="0" hidden></progress>
+        <p id="status" role="status" aria-live="polite">Initialisation…</p>
+        <p class="muted">Après préparation, couper la connexion puis recharger la page. Si le navigateur efface le stockage du site, il faudra préparer à nouveau l’appareil.</p>
+      </section>
+      <section class="panel"><div class="section-title"><span class="step">02</span><h2>Choisir une nouvelle image</h2></div>
+        <label class="upload" for="image">Sélectionner une échographie de démonstration<input id="image" type="file" accept="image/png,image/jpeg" disabled></label>
+        <p class="muted">PNG ou JPEG opaque · 16 Mo maximum · 4 millions de pixels maximum.</p>
+        <p id="filename"></p><button id="analyze" disabled type="button">Analyser sur cet appareil</button>
+        <p id="error" class="error" role="alert" hidden></p>
+      </section>
+    </div>
+    <section id="results" class="panel results" hidden>
+      <p class="eyebrow">Résultat calculé localement</p><div class="result-heading"><h2 id="prediction"></h2><span id="timing" class="badge"></span></div>
+      <div id="probabilities" class="probabilities"></div><p id="segmentation-status"></p>
+      <div class="images"><figure><canvas id="original"></canvas><figcaption>Image sélectionnée</figcaption></figure>
+        <figure id="mask-figure" hidden><canvas id="mask"></canvas><figcaption>Masque prédit · seuil 0,5 · plus grande composante</figcaption></figure>
+        <figure id="overlay-figure" hidden><canvas id="overlay"></canvas><figcaption>Superposition du masque</figcaption></figure></div>
+      <p class="muted">Le score du classificateur n’est pas une probabilité clinique calibrée. La surface affichée est une proportion de pixels, pas une mesure physique. Une classe prédite normale désactive la segmentation ; cette règle ne prouve pas l’absence de lésion.</p>
+    </section>
+  </main>
+  <footer>BUSBRA Vision · Prototype hors ligne v1 · Les images et résultats restent uniquement en mémoire dans ce laboratoire.</footer>
+</body>
+</html>
