@@ -64,10 +64,18 @@ Sous Windows, le moyen le plus simple est de double-cliquer sur `start_app.bat`.
 Ce lanceur sélectionne directement le Python de `.venv` et force le backend Keras
 correct ; il n'est pas nécessaire d'activer manuellement l'environnement virtuel.
 
-Attendre les messages `Les deux modeles sont charges` puis `Running on
-http://127.0.0.1:5001`. Le navigateur s'ouvre automatiquement, ou ouvrir
-<http://127.0.0.1:5001>. Laisser le terminal
-ouvert pendant l'utilisation. `Ctrl+C` arrete le serveur.
+Attendre les messages `Les deux modeles sont charges`, `PWA hors ligne disponible`
+et `Running on http://127.0.0.1:5001`. Le navigateur s'ouvre automatiquement,
+ou ouvrir <http://127.0.0.1:5001>. Après connexion, le bouton **Essayer la PWA
+hors ligne** ouvre le laboratoire sur <http://127.0.0.1:5091>. Préparer le mode
+hors ligne pendant que la connexion est disponible ; l'installation se fait
+ensuite depuis le menu du navigateur. La PWA n'envoie pas les images au serveur
+et son historique reste séparé de celui de la plateforme. Laisser le terminal
+ouvert pendant l'utilisation. `Ctrl+C` arrête les deux serveurs.
+
+Si le port 5091 est déjà utilisé, choisir un autre port PWA avec
+`--pwa-port 5092` ; le lien local de la plateforme utilise le port 5091 par
+défaut. Pour démarrer uniquement la plateforme, ajouter `--no-pwa`.
 
 Le mode CPU est utilisé par défaut. Pour tenter l'inférence CUDA côté PyTorch :
 

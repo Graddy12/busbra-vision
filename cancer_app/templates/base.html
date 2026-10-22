@@ -20,6 +20,7 @@
       <a href="{{ url_for('history') }}" {% if request.endpoint in ['history', 'analysis_detail'] %}aria-current="page"{% endif %}>Historique</a>
       {% if current_user.role == 'admin' %}<a href="{{ url_for('admin') }}" {% if request.endpoint in ['admin', 'edit_user'] %}aria-current="page"{% endif %}>Administration</a>{% endif %}
     </nav>
+    {% if config.OFFLINE_PWA_URL %}<a class="btn small secondary pwa-launch" href="{{ config.OFFLINE_PWA_URL }}" target="_blank" rel="noopener">Essayer la PWA hors ligne</a>{% endif %}
     <div class="account-menu"><span><strong>{{ current_user.name }}</strong><small>{{ current_user.specialty or ('Administrateur' if current_user.role == 'admin' else 'Médecin') }}</small></span><form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn small secondary" type="submit">Déconnexion</button></form></div>
     {% else %}<div class="prototype-badge"><span></span> Prototype académique</div>{% endif %}
   </header>

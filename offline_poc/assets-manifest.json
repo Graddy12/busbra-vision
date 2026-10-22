@@ -1,0 +1,51 @@
+{
+  "format_version": 1,
+  "version": "offline-poc-fp32-v1",
+  "runtime_version": "1.23.2",
+  "classes": [
+    "normal",
+    "benign",
+    "malignant"
+  ],
+  "labels": {
+    "normal": "Normale",
+    "benign": "Bénigne",
+    "malignant": "Maligne"
+  },
+  "classifier": {
+    "size": 224,
+    "layout": "NHWC",
+    "normalization": "internal",
+    "resize": "Pillow bilinear"
+  },
+  "segmenter": {
+    "size": 384,
+    "layout": "NCHW",
+    "mean": [
+      0.48500001430511475,
+      0.4560000002384186,
+      0.4059999883174896
+    ],
+    "std": [
+      0.2290000021457672,
+      0.2240000069141388,
+      0.22499999403953552
+    ],
+    "threshold": 0.5,
+    "tta": true,
+    "largest": true,
+    "tta_in_graph": true
+  },
+  "models": {
+    "classification": {
+      "url": "./models/classification.onnx",
+      "sha256": "a5797aa516ff6086afc168b53ed2e79d59447b7730a39c7e23c7bc6e1cd59f91",
+      "bytes": 16909129
+    },
+    "segmentation": {
+      "url": "./models/segmentation.onnx",
+      "sha256": "52e5cf516b28b69f3c0109ef1fb613d7da6dce19c955235c35eb21021f7cedae",
+      "bytes": 97781693
+    }
+  }
+}

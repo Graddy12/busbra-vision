@@ -23,6 +23,11 @@ validation_results/
 uploads/
 .coverage
 htmlcov/
+elements_memoire/
+offline_poc/models/
+offline_poc/vendor/
+offline_poc/assets-manifest.json
+*.onnx
 classification_package/*
 !classification_package/config_modele.json
 segmentation_package/*

@@ -37,11 +37,15 @@ def create_app(test_config: dict | None = None, predictor=None) -> Flask:
         BOOTSTRAP_ADMIN_PASSWORD=os.getenv("BUSBRA_ADMIN_PASSWORD"),
         BOOTSTRAP_RECOVERY_PASSWORD_HASH=os.getenv("BUSBRA_RECOVERY_PASSWORD_HASH"),
         PRODUCTION=os.getenv("BUSBRA_PRODUCTION", "0") == "1",
+        OFFLINE_PWA_URL=os.getenv("BUSBRA_OFFLINE_PWA_URL"),
         SECRET_KEY=os.getenv("BUSBRA_SECRET_KEY") or None,
     )
 
     if test_config:
         app.config.update(test_config)
+
+    if not app.config["PRODUCTION"] and not app.config["OFFLINE_PWA_URL"]:
+        app.config["OFFLINE_PWA_URL"] = "http://127.0.0.1:5091/"
 
     if app.config["PRODUCTION"]:
         if len(app.config["BOOTSTRAP_ADMIN_PASSWORD"] or "") < 16:

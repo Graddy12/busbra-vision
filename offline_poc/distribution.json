@@ -1,0 +1,8 @@
+{
+  "release": "offline-poc-v1",
+  "archive": {
+    "url": "https://github.com/Graddy12/busbra-vision/releases/download/offline-poc-v1/busbra_offline_telephone.zip",
+    "bytes": 109506779,
+    "sha256": "35497b27f4a74eec006bbb655d81288a8e075e4169cfbcc5d37d8554f6179ce9"
+  }
+}

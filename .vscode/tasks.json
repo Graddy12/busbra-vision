@@ -1,0 +1,220 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "BUSBRA Vision local + PWA hors ligne",
+			"type": "shell",
+			"command": ".\\.venv\\Scripts\\python.exe",
+			"args": [
+				"app.py",
+				"--port",
+				"5001",
+				"--open-browser"
+			],
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Tests BUSBRA Flask ciblés",
+			"type": "shell",
+			"command": ".\\.venv\\Scripts\\python.exe",
+			"args": [
+				"-m",
+				"pytest",
+				"tests\\test_app.py",
+				"tests\\test_deployment.py",
+				"-q"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Tester les changements de la PWA hors ligne",
+			"type": "shell",
+			"command": ".\\.venv\\Scripts\\python.exe",
+			"args": [
+				"-m",
+				"pytest",
+				"tests\\test_offline_delivery.py",
+				"tests\\test_offline_static_build.py",
+				"-q"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Valider la syntaxe JavaScript PWA",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--check",
+				"offline_poc\\app.js"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Vérifier syntaxe JavaScript PWA",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--check",
+				"offline_poc\\app.js"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Tests PWA et livraison statique",
+			"type": "shell",
+			"command": ".\\.venv\\Scripts\\python.exe",
+			"args": [
+				"-m",
+				"pytest",
+				"tests\\test_offline_delivery.py",
+				"tests\\test_offline_static_build.py",
+				"-q"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Tests PWA hors ligne ciblés",
+			"type": "shell",
+			"command": ".\\.venv\\Scripts\\python.exe",
+			"args": [
+				"-m",
+				"pytest",
+				"tests\\test_offline_delivery.py",
+				"tests\\test_offline_static_build.py",
+				"-q"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Vérifier JavaScript PWA",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--check",
+				"offline_poc\\app.js"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Vérifier la syntaxe JavaScript hors ligne",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--check",
+				"offline_poc\\app.js"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Vérifier syntaxe JS rapport local",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--check",
+				"offline_poc\\app.js"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Tests historique et rapport PWA",
+			"type": "shell",
+			"command": ".\\.venv\\Scripts\\python.exe",
+			"args": [
+				"-m",
+				"pytest",
+				"tests\\test_offline_delivery.py",
+				"tests\\test_offline_static_build.py",
+				"-q"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Tests rapport et historique hors ligne",
+			"type": "shell",
+			"command": ".\\.venv\\Scripts\\python.exe",
+			"args": [
+				"-m",
+				"pytest",
+				"tests\\test_offline_delivery.py",
+				"tests\\test_offline_static_build.py",
+				"-q"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Vérifier syntaxe JS historique",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--check",
+				"offline_poc\\app.js"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Contrôle whitespace du diff",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"diff",
+				"--check"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Syntaxe JS historique PWA finale",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--check",
+				"offline_poc\\app.js"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Validation finale historique PWA",
+			"type": "shell",
+			"command": ".\\.venv\\Scripts\\python.exe",
+			"args": [
+				"-m",
+				"pytest",
+				"tests\\test_offline_delivery.py",
+				"tests\\test_offline_static_build.py",
+				"-q"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		}
+	]
+}

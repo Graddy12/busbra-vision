@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#084c4d"><meta name="description" content="Espace BUSBRA Vision pour l'analyse locale hors ligne.">
+  <link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css"><title>Analyser — BUSBRA Vision</title>
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./"><span class="brand-mark" aria-hidden="true"></span><span>BUSBRA <strong>Vision</strong></span></a>
+    <nav class="main-nav" aria-label="Navigation principale">
+      <button class="nav-link active" type="button" data-page="analysis">Analyser</button>
+      <button class="nav-link" type="button" data-page="dashboard">Tableau de bord</button>
+      <button class="nav-link" type="button" data-page="history">Historique <span id="history-count" class="nav-count">0</span></button>
+    </nav>
+    <div class="topbar-actions"><span id="network" class="prototype-badge"><span></span> Connexion…</span><button id="install-app" class="btn small secondary" type="button" hidden>Installer</button></div>
+  </header>
+  <main>
+    <section id="analysis-page">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Double analyse · classification + segmentation</p>
+          <h1>Une lecture assistée,<br><em>deux modèles complémentaires.</em></h1>
+          <p class="hero-copy">Importez une échographie mammaire. Le classificateur estime la catégorie, tandis que le modèle U-Net délimite la région d'intérêt. Avec la PWA préparée, les calculs se font sur cet appareil, même hors connexion.</p>
+        </div>
+        <div class="model-summary" aria-label="Modèles utilisés">
+          <div><span>01</span><p><strong>EfficientNetB0</strong><br>Classification locale</p></div>
+          <div><span>02</span><p><strong>U-Net ResNet34</strong><br>Segmentation locale</p></div>
+        </div>
+      </section>
+
+      <div class="offline-strip">
+        <div><strong id="status">Initialisation…</strong><p id="download-size">Vérification du mode hors ligne…</p></div>
+        <button id="prepare" class="btn secondary small" type="button">Préparer cet appareil</button>
+        <progress id="progress" max="100" value="0" hidden></progress>
+      </div>
+      <p id="error" class="error" role="alert" hidden></p>
+
+      <section class="workspace" aria-label="Zone d'analyse">
+        <div class="upload-panel">
+          <div class="section-heading"><p class="step">Étape 01</p><h2>Échographie source</h2></div>
+          <label class="exam-reference">Référence de l'examen (facultative)<input id="exam-reference" maxlength="100" placeholder="Ex. DEMO-001"></label>
+          <label id="drop-zone" class="drop-zone" for="image">
+            <input id="image" type="file" accept="image/png,image/jpeg" disabled>
+            <span class="upload-icon" aria-hidden="true">↑</span>
+            <span class="drop-title">Déposez l'image ici</span>
+            <span class="drop-help">ou cliquez pour parcourir · PNG/JPEG · 16 Mo maximum</span>
+          </label>
+          <div id="preview-wrap" class="preview-wrap" hidden>
+            <img id="source-preview" alt="Aperçu de l'échographie sélectionnée">
+            <button id="remove-image" class="remove-image" type="button" aria-label="Retirer l'image">×</button>
+            <div class="file-meta"><span id="filename"></span><span id="file-size"></span></div>
+          </div>
+          <p id="duplicate-notice" class="duplicate-notice" role="status" hidden></p>
+          <button id="analyze" class="analyze-button" type="button" disabled><span>Analyser l'échographie</span><span aria-hidden="true">→</span></button>
+          <p class="privacy-note">L'image et ses résultats sont conservés uniquement dans le stockage local de ce navigateur pour permettre leur consultation hors ligne. Rien n'est envoyé au serveur.</p>
+        </div>
+        <div class="results-panel">
+          <div class="section-heading"><p class="step">Étape 02</p><h2>Résultats combinés</h2></div>
+          <div id="empty-state" class="empty-state"><div class="scan-illustration" aria-hidden="true"><span></span></div><p>Les résultats apparaîtront ici après l'analyse.</p></div>
+          <div id="loading-state" class="loading-state" hidden><div class="loader"><span></span><span></span><span></span></div><p>Les deux modèles examinent l'image…</p><small>Le calcul est effectué localement sur cet appareil.</small></div>
+          <section id="results" hidden>
+            <div class="classification-card"><div><p class="card-kicker">Classification</p><h3 id="prediction">—</h3></div><div class="confidence-ring" id="confidence-ring"><span id="confidence-value">0%</span><small>score</small></div></div>
+            <div id="probabilities" class="probability-list"></div>
+            <div class="segmentation-card">
+              <div class="card-title-row"><div><p class="card-kicker">Segmentation</p><h3 id="segmentation-title">Visualisation</h3></div><p id="lesion-area-wrap"><strong id="lesion-area">—</strong><br><span>de l'image</span></p></div>
+              <p id="segmentation-status" class="quiet"></p>
+              <div class="result-image"><canvas id="original"></canvas><canvas id="overlay" hidden></canvas><canvas id="mask" hidden></canvas></div>
+              <div class="image-actions">
+                <button class="view-toggle active" type="button" data-view="original">Originale</button>
+                <button class="view-toggle" type="button" data-view="overlay">Superposition</button>
+                <button class="view-toggle" type="button" data-view="mask">Masque seul</button>
+                <a id="download-result" download="echographie.png">Télécharger</a>
+              </div>
+            </div>
+            <p id="timing" class="inference-meta"></p>
+            <form id="feedback-form" class="feedback-form">
+              <p class="card-kicker">Retour médecin · enregistré sur cet appareil</p>
+              <h3>La prédiction est-elle incorrecte ?</h3>
+              <fieldset class="feedback-choice">
+                <legend>Votre appréciation</legend>
+                <label><input type="radio" name="assessment" value="correct"> Correcte</label>
+                <label><input type="radio" name="assessment" value="incorrect"> Incorrecte</label>
+              </fieldset>
+              <label id="correction-wrap" hidden>Classe corrigée
+                <select id="corrected-class">
+                  <option value="">Aucune correction</option>
+                  <option value="normal">Normale</option>
+                  <option value="benign">Bénigne</option>
+                  <option value="malignant">Maligne</option>
+                </select>
+              </label>
+              <label>Commentaire (facultatif)<textarea id="feedback-note" rows="3" maxlength="2000" placeholder="Votre observation…"></textarea></label>
+              <button class="btn secondary" type="submit">Enregistrer le retour</button>
+              <p id="feedback-status" class="quiet" role="status"></p>
+            </form>
+          </section>
+        </div>
+      </section>
+      <aside class="medical-warning"><span aria-hidden="true">!</span><p><strong>Important</strong> — Prototype académique uniquement. Les résultats ne constituent pas un diagnostic et ne remplacent pas l'interprétation d'un radiologue.</p></aside>
+    </section>
+
+    <section id="dashboard-page" hidden>
+      <div class="page-heading"><div><p class="eyebrow">Activité de cet appareil</p><h1 class="page-title">Tableau de bord local</h1><p class="muted">Statistiques calculées uniquement à partir de l'historique local de cette PWA.</p></div><button class="btn" type="button" data-page="analysis">Nouvelle analyse</button></div>
+      <div class="stat-grid">
+        <div class="stat panel"><small>Analyses enregistrées</small><strong id="dashboard-total">0</strong></div>
+        <div class="stat panel"><small>Avec retour médecin</small><strong id="dashboard-reviewed">0</strong></div>
+        <div class="stat panel"><small>À revoir</small><strong id="dashboard-pending">0</strong></div>
+      </div>
+      <section class="panel"><p class="eyebrow">Classification automatique</p><h2>Répartition des prédictions</h2><div id="dashboard-distribution" class="distribution"></div><p class="quiet">Les catégories représentent les sorties du modèle, pas des diagnostics médicaux.</p></section>
+    </section>
+
+    <section id="history-page" hidden>
+      <div class="page-heading"><div><p class="eyebrow">Examens de cet appareil</p><h1 class="page-title">Historique local</h1><p class="muted">Ces données ne sont visibles que dans le stockage de ce navigateur ; elles ne sont pas synchronisées avec le compte web.</p></div><button class="btn" type="button" data-page="analysis">Nouvelle analyse</button></div>
+      <section class="panel"><div class="table-wrap"><table><thead><tr><th>Fichier / référence</th><th>Prédiction</th><th>Dernière analyse</th><th>Retour</th><th>Actions</th></tr></thead><tbody id="history-rows"></tbody></table></div><p id="history-empty" class="empty-table">Aucune analyse enregistrée sur cet appareil.</p></section>
+    </section>
+
+    <section id="detail-page" hidden>
+      <div class="page-heading"><div><button class="text-button" type="button" data-page="history">← Retour à l'historique</button><p class="eyebrow section-space">Détail de l'examen</p><h1 id="detail-title" class="page-title"></h1><p id="detail-meta" class="muted"></p></div><button id="detail-report" class="btn" type="button">Ouvrir le rapport →</button></div>
+      <div class="stat-grid">
+        <div class="stat panel"><small>Prédiction</small><strong id="detail-prediction"></strong></div>
+        <div class="stat panel"><small>Score du classificateur</small><strong id="detail-confidence"></strong></div>
+        <div class="stat panel"><small>Segmentation</small><strong id="detail-segmentation"></strong></div>
+      </div>
+      <p id="detail-archive-warning" class="error" hidden></p>
+      <div class="detail-grid">
+        <section class="panel"><h2>Résultats de l'analyse</h2><div id="detail-probabilities" class="probability-list"></div><p id="detail-segmentation-note" class="quiet"></p><div class="archive-images"><figure id="detail-original-figure" hidden><canvas id="detail-original"></canvas><figcaption>Image originale</figcaption></figure><figure id="detail-overlay-figure" hidden><canvas id="detail-overlay"></canvas><figcaption>Superposition de segmentation</figcaption></figure><figure id="detail-mask-figure" hidden><canvas id="detail-mask"></canvas><figcaption>Masque binaire</figcaption></figure></div></section>
+        <section class="panel"><p class="eyebrow">Revue humaine locale</p><h2>Retour médecin</h2><p id="detail-feedback"></p><p id="detail-feedback-note" class="note-block"></p><p id="detail-feedback-date" class="quiet"></p></section>
+      </div>
+    </section>
+
+    <section id="report-page" hidden>
+      <div class="page-heading no-print"><button class="text-button" type="button" data-page="detail">← Retour à l'analyse</button><button id="print-report" class="btn" type="button">Imprimer / Enregistrer en PDF</button></div>
+      <article class="report-sheet">
+        <div class="report-header"><div><p class="eyebrow">BUSBRA Vision · mode local</p><h1>Rapport d'analyse d'échographie mammaire</h1></div><span class="report-tag">Prototype académique</span></div>
+        <div class="report-meta"><p><strong>Référence</strong><br><span id="report-reference"></span></p><p><strong>Date de l'analyse</strong><br><span id="report-date"></span></p><p><strong>Fichier</strong><br><span id="report-filename"></span></p><p><strong>Revue humaine</strong><br><span id="report-review-status"></span></p></div>
+        <h2>1. Classification</h2><p>Catégorie privilégiée : <strong id="report-prediction"></strong>. Score : <strong id="report-confidence"></strong>.</p><div id="report-probabilities" class="report-probabilities"></div>
+        <h2>2. Segmentation</h2><p id="report-segmentation"></p>
+        <div class="report-images"><figure id="report-original-figure" hidden><canvas id="report-original"></canvas><figcaption>Échographie originale</figcaption></figure><figure id="report-overlay-figure" hidden><canvas id="report-overlay"></canvas><figcaption>Superposition du masque</figcaption></figure><figure id="report-mask-figure" hidden><canvas id="report-mask"></canvas><figcaption>Masque binaire</figcaption></figure></div>
+        <h2>3. Observation du médecin</h2><p id="report-feedback"></p><p id="report-feedback-note" class="note-block"></p><p id="report-feedback-date" class="quiet"></p>
+        <p class="quiet">Les résultats sont calculés localement. Les scores ne sont pas des probabilités cliniques calibrées et ne constituent pas un diagnostic.</p>
+        <p class="report-end">Fin du rapport · BUSBRA Vision · Données conservées uniquement dans ce navigateur</p>
+      </article>
+    </section>
+  </main>
+  <footer>BUSBRA Vision · Mode local hors ligne · Données conservées dans ce navigateur</footer>
+</body>
+</html>

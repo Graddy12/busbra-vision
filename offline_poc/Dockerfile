@@ -1,0 +1,7 @@
+FROM python:3.11-alpine
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /app
+COPY . /app
+USER 65532:65532
+EXPOSE 8080
+CMD ["python", "server.py", "--host", "0.0.0.0"]

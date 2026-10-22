@@ -74,6 +74,15 @@ def test_home_page(client):
     response = client.get("/workspace")
     assert response.status_code == 200
     assert "Nouvelle analyse" in response.get_data(as_text=True)
+    assert b'Essayer la PWA hors ligne' in response.data
+    assert b'http://127.0.0.1:5091/' in response.data
+    assert b'Essayer la PWA hors ligne' in client.get("/admin").data
+
+
+def test_pwa_invitation_requires_authentication(app):
+    response = app.test_client().get("/login")
+    assert response.status_code == 200
+    assert b'Essayer la PWA hors ligne' not in response.data
 
 
 def test_combined_analysis_endpoint(client, app):
