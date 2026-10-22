@@ -25,4 +25,5 @@ validation_data
 validation_results
 uploads
 elements_memoire
-offline_poc
+offline_poc/models
+offline_poc/vendor

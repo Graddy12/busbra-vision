@@ -1,17 +1,67 @@
 "use strict";
-const CACHE = "busbra-offline-poc-v10";
+const CACHE = "busbra-offline-poc-v12";
 const $ = selector => document.querySelector(selector);
 const pending = new Map();
+const integrated = location.pathname.startsWith("/workspace/");
 let worker, manifest, requestId = 0, busy = false, ready = false, selection = null, lastResult = null;
 let databasePromise, installPrompt = null;
+let serverSession = null;
+
+function engineMode() {
+  const choice = integrated ? $("#engine-mode").value : "local";
+  return choice === "auto" ? (serverSession && navigator.onLine ? "server" : "local") : choice;
+}
+function canAnalyze() {
+  return engineMode() === "server" ? Boolean(serverSession && navigator.onLine) : ready;
+}
+function updateEngineUI() {
+  const server = engineMode() === "server";
+  $("#engine-control").hidden = !integrated;
+  $("#engine-mode").disabled = busy;
+  $("#engine-description").textContent = server
+    ? "Serveur : connexion requise. L'image sera envoyée et l'examen enregistré dans votre compte."
+    : "Local : aucun envoi d'image. Préparez les modèles avant la coupure ; les examens restent dans ce navigateur.";
+  $("#privacy-note").textContent = server
+    ? "L'image est envoyée au serveur Flask. L'examen, le rapport et l'avis du médecin sont conservés dans votre compte, sans copie automatique dans l'historique local."
+    : "L'image et ses résultats restent dans ce navigateur, sans envoi au serveur. Sur un appareil partagé, ces archives locales restent accessibles : utiliser uniquement des images de démonstration non identifiantes.";
+  $("#server-login").hidden = !integrated || Boolean(serverSession) || !navigator.onLine;
+  $("#server-user").hidden = !serverSession || !navigator.onLine;
+  $("#server-user").textContent = serverSession?.user.name || "";
+  $("#server-logout").hidden = !serverSession || !navigator.onLine;
+  $("#server-history").hidden = !serverSession || !navigator.onLine;
+  $("#server-admin").hidden = !serverSession?.admin_url || !navigator.onLine;
+  if (serverSession) {
+    $("#server-history").href = serverSession.history_url;
+    if (serverSession.admin_url) $("#server-admin").href = serverSession.admin_url;
+  }
+}
+async function refreshSession() {
+  if (!integrated) return;
+  try {
+    const response = await fetch("../api/session", { cache: "no-store", credentials: "same-origin", signal: AbortSignal.timeout(5000) });
+    serverSession = response.ok ? await response.json() : null;
+  } catch { serverSession = null; }
+  controls();
+}
 
 function networkStatus() {
   const offline = !navigator.onLine;
-  $("#network").textContent = offline ? "Hors ligne · calcul local" : "Mode local · aucune synchronisation";
+  $("#network").textContent = offline ? "Hors ligne · calcul local" : engineMode() === "server" ? "Connecté · moteur serveur" : "Mode local · aucune synchronisation";
   $("#network").classList.toggle("offline", offline);
 }
-addEventListener("online", networkStatus);
-addEventListener("offline", networkStatus);
+addEventListener("online", () => { networkStatus(); refreshSession(); });
+addEventListener("offline", () => { networkStatus(); controls(); });
+addEventListener("focus", () => { if (!busy && navigator.onLine) refreshSession(); });
+$("#engine-mode").addEventListener("change", controls);
+$("#server-logout").addEventListener("click", async () => {
+  if (!serverSession || busy) return;
+  try {
+    const response = await fetch(serverSession.logout_url, { method: "POST", credentials: "same-origin", headers: { "X-CSRF-Token": serverSession.csrf_token } });
+    if (!response.ok) throw new Error("Déconnexion impossible. Actualisez la page.");
+    serverSession = null;
+    location.assign("../login");
+  } catch (exception) { error(exception.message); }
+});
 addEventListener("beforeinstallprompt", event => {
   event.preventDefault();
   installPrompt = event;
@@ -30,9 +80,11 @@ function status(message) { $("#status").textContent = message; }
 function error(message) { $("#error").textContent = message; $("#error").hidden = !message; }
 function controls() {
   $("#prepare").disabled = busy;
-  $("#image").disabled = busy || !ready;
-  $("#analyze").disabled = busy || !ready || !selection;
+  $("#image").disabled = busy;
+  $("#analyze").disabled = busy || !canAnalyze() || !selection;
   $("#remove-image").disabled = busy;
+  updateEngineUI();
+  networkStatus();
 }
 function requestResult(request) {
   return new Promise((resolve, reject) => {
@@ -407,6 +459,7 @@ async function prepare() {
 $("#prepare").addEventListener("click", prepare);
 
 async function selectImage(file) {
+  if (busy) return;
   selection = null;
   lastResult = null;
   $("#results").hidden = true;
@@ -441,15 +494,15 @@ async function selectImage(file) {
     }
     OfflinePreprocess.validateUltrasound(rgb, width, height);
     const fileBytes = await file.arrayBuffer();
-    const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", fileBytes))]
-      .map(byte => byte.toString(16).padStart(2, "0")).join("");
+    const hash = crypto.subtle ? [...new Uint8Array(await crypto.subtle.digest("SHA-256", fileBytes))]
+      .map(byte => byte.toString(16).padStart(2, "0")).join("") : null;
     selection = { rgb, width, height, rgba, hash, filename: file.name, imageBlob: file.slice(0, file.size, file.type) };
     $("#source-preview").src = URL.createObjectURL(file);
     $("#filename").textContent = file.name;
     $("#file-size").textContent = `${(file.size / 1024 / 1024).toFixed(1)} Mo`;
     $("#preview-wrap").hidden = false;
     $("#drop-zone").hidden = true;
-    const previous = await readRecord(hash);
+    const previous = hash ? await readRecord(hash) : null;
     if (previous) {
       $("#duplicate-notice").textContent = `Cette image a déjà été analysée le ${formatDate(previous.updatedAt)} : ${previous.label} (${previous.confidence.toFixed(1)} %). Vous pouvez l'analyser à nouveau si nécessaire.`;
       $("#duplicate-notice").hidden = false;
@@ -491,14 +544,15 @@ function drawCanvas(name, pixels) {
 }
 function setResultView(view) {
   const canvas = view === "original" ? "original" : view;
-  ["original", "overlay", "mask"].forEach(name => { $("#" + name).hidden = name !== canvas; });
+  ["original", "overlay", "mask", "gradcam"].forEach(name => { $("#" + name).hidden = name !== canvas; });
   const activeCanvas = $("#" + canvas);
   $("#download-result").href = activeCanvas.toDataURL("image/png");
-  $("#download-result").download = view === "original" ? "echographie-originale.png"
+  $("#download-result").download = view === "gradcam" ? "gradcam.png" : view === "original" ? "echographie-originale.png"
     : view === "mask" ? "masque-segmentation.png" : "superposition-segmentation.png";
   document.querySelectorAll(".view-toggle").forEach(button => {
     button.classList.toggle("active", button.dataset.view === view);
-    button.disabled = view !== "original" && !lastResult?.segmentationPerformed;
+    button.disabled = button.dataset.view === "gradcam" ? !lastResult?.gradcamPixels
+      : button.dataset.view !== "original" && !lastResult?.segmentationPerformed;
   });
 }
 function paint(result) {
@@ -532,6 +586,9 @@ function paint(result) {
     ? "Masque prédit · seuil 0,5 · plus grande composante conservée."
     : "Segmentation non appliquée pour une classe prédite normale. Cela ne prouve pas l'absence de lésion.";
   drawCanvas("original", selection.rgba.data);
+  $("[data-view='gradcam']").hidden = !result.gradcamPixels;
+  $("#gradcam-note").hidden = !result.gradcamPixels;
+  if (result.gradcamPixels) drawCanvas("gradcam", result.gradcamPixels);
   if (result.mask) {
     const source = new Uint8ClampedArray(selection.rgba.data);
     const mask = new Uint8ClampedArray(selection.width * selection.height * 4);
@@ -548,7 +605,13 @@ function paint(result) {
     drawCanvas("overlay", source);
     drawCanvas("mask", mask);
   }
-  $("#timing").textContent = `${(result.inferenceMs / 1000).toFixed(2)} s · calcul sur cet appareil`;
+  $("#timing").textContent = `${(result.inferenceMs / 1000).toFixed(2)} s · ${result.serverAnalysis ? "calcul sur le serveur" : "calcul sur cet appareil"}`;
+  $("#server-result-links").hidden = !result.serverAnalysis;
+  $("#feedback-form").hidden = Boolean(result.serverAnalysis);
+  if (result.serverAnalysis) {
+    $("#server-detail").href = result.serverAnalysis.history_url;
+    $("#server-report").href = result.serverAnalysis.report_url;
+  }
   $("#results").hidden = false;
   $("#empty-state").hidden = true;
   setResultView(result.segmentationPerformed ? "overlay" : "original");
@@ -557,8 +620,60 @@ document.querySelectorAll(".view-toggle").forEach(button => {
   button.addEventListener("click", () => setResultView(button.dataset.view));
 });
 
+async function decodeServerImage(dataUrl, width, height) {
+  if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/png;base64,")) {
+    throw new Error("Image du résultat serveur invalide. Consultez l'examen dans l'historique du compte.");
+  }
+  const bytes = Uint8Array.from(atob(dataUrl.split(",")[1]), char => char.charCodeAt(0));
+  const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
+  if (bitmap.width !== width || bitmap.height !== height) {
+    bitmap.close();
+    throw new Error("Dimensions du résultat serveur incompatibles. Consultez l'historique du compte.");
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = width; canvas.height = height;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  context.drawImage(bitmap, 0, 0); bitmap.close();
+  return context.getImageData(0, 0, width, height).data;
+}
+async function analyzeOnServer() {
+  await refreshSession();
+  if (!serverSession || !navigator.onLine) throw new Error("Serveur indisponible ou session expirée. Reconnectez-vous, ou choisissez explicitement le mode local après préparation.");
+  const body = new FormData();
+  body.append("image", selection.imageBlob, selection.filename);
+  body.append("reference", $("#exam-reference").value.trim());
+  let response;
+  try {
+    response = await fetch(serverSession.analyze_url, { method: "POST", body, credentials: "same-origin",
+      headers: { "X-CSRF-Token": serverSession.csrf_token } });
+  } catch {
+    // A lost response may already have been persisted: never retry a POST locally.
+    throw new Error("Réponse du serveur perdue. Vérifiez l'historique du compte avant de réessayer ; aucune seconde analyse n'a été lancée automatiquement.");
+  }
+  const data = await response.json();
+  if (!response.ok) {
+    if (response.status === 401) serverSession = null;
+    throw new Error(data.error || `Analyse serveur impossible (HTTP ${response.status}).`);
+  }
+  const code = data.classification?.code;
+  if (!manifest.classes.includes(code)) throw new Error("Classe serveur inconnue. Consultez l'historique du compte.");
+  const probabilities = manifest.classes.map(name => data.classification.probabilities.find(row => row.code === name)?.probability || 0);
+  const { width, height } = selection;
+  const segmentationPerformed = code !== "normal" && data.segmentation.performed === true;
+  let mask = null;
+  if (segmentationPerformed) {
+    const pixels = await decodeServerImage(data.segmentation.mask_data_url, width, height);
+    mask = Uint8Array.from({ length: width * height }, (_, i) => pixels[i * 4] >= 128 ? 1 : 0);
+  }
+  const gradcamPixels = data.gradcam?.available
+    ? await decodeServerImage(data.gradcam.overlay_data_url, width, height) : null;
+  return { code, label: data.classification.label, probabilities, mask, width, height,
+    segmentationPerformed, lesionAreaPercent: segmentationPerformed ? data.segmentation.lesion_area_percent : null,
+    inferenceMs: data.meta.inference_ms, serverAnalysis: data.analysis, gradcamPixels };
+}
 async function analyze() {
-  if (!ready || busy || !selection) return;
+  if (!canAnalyze() || busy || !selection) return;
+  const useServer = engineMode() === "server";
   busy = true;
   lastResult = null;
   controls();
@@ -566,7 +681,15 @@ async function analyze() {
   $("#empty-state").hidden = true;
   $("#results").hidden = true;
   $("#loading-state").hidden = false;
+  $("#loading-engine").textContent = useServer ? "Le calcul est effectué sur le serveur Flask." : "Le calcul est effectué localement sur cet appareil.";
   try {
+    if (useServer) {
+      const result = await analyzeOnServer();
+      lastResult = result;
+      paint(result);
+      status("Analyse serveur terminée · examen enregistré dans l'historique du compte");
+      return;
+    }
     const { rgb, width, height } = selection;
     const transferred = rgb.slice();
     const result = await callWorker("analyze", { rgb: transferred.buffer, width, height }, [transferred.buffer]);
@@ -609,7 +732,7 @@ async function analyze() {
 $("#analyze").addEventListener("click", analyze);
 $("#feedback-form").addEventListener("submit", async event => {
   event.preventDefault();
-  if (!selection || !lastResult) return;
+  if (!selection || !lastResult || lastResult.serverAnalysis) return;
   const assessment = document.querySelector('input[name="assessment"]:checked')?.value;
   const correctedClass = $("#corrected-class").value;
   const note = $("#feedback-note").value.trim();
@@ -650,20 +773,49 @@ async function initialize() {
   busy = true;
   controls();
   try {
-    if (!isSecureContext || !("serviceWorker" in navigator)) {
-      throw new Error("Utiliser HTTPS ou l’adresse locale 127.0.0.1 avec un navigateur compatible.");
-    }
+    await refreshSession();
     const response = await fetch("./assets-manifest.json");
     if (!response.ok) throw new Error("Les modèles n’ont pas encore été exportés.");
     manifest = await response.json();
     $("#download-size").textContent = `Modèles · ${(Object.values(manifest.models).reduce((sum, model) => sum + model.bytes, 0) / 1e6).toFixed(1)} Mo, plus le moteur.`;
     await renderHistory();
-    await navigator.serviceWorker.register("./sw.js");
+    if (!isSecureContext || !("serviceWorker" in navigator)) {
+      status("Mode serveur disponible après connexion · le mode hors ligne nécessite HTTPS ou 127.0.0.1");
+      $("#prepare").hidden = true;
+      return;
+    }
+    if (integrated && !await prepared()) {
+      const resources = ["./vendor/ort-wasm-simd-threaded.wasm", ...Object.values(manifest.models).map(model => model.url)];
+      const available = await Promise.all(resources.map(async url => {
+        try { return (await fetch(url, { method: "HEAD" })).ok; } catch { return false; }
+      }));
+      // Offline reload uses cached GET responses, not network HEAD requests.
+      if (navigator.onLine && available.some(value => !value)) {
+        status("Mode serveur disponible · ressources du moteur local absentes sur cet hébergement");
+        $("#prepare").hidden = true;
+        return;
+      }
+    }
+    const registration = await navigator.serviceWorker.register("./sw.js");
+    const updating = registration.installing || registration.waiting;
+    if (updating && updating.state !== "activated") {
+      await new Promise((resolve, reject) => {
+        const check = () => {
+          if (updating.state === "activated" || updating.state === "redundant") {
+            updating.removeEventListener("statechange", check);
+            if (updating.state === "activated") resolve();
+            else reject(new Error("La mise à jour du mode local a échoué. Réessayez en ligne."));
+          }
+        };
+        updating.addEventListener("statechange", check);
+        check();
+      });
+    }
     await navigator.serviceWorker.ready;
     if (await prepared()) {
       await startEngine();
     } else {
-      status("Appareil non préparé · téléchargez les modèles avant de passer hors ligne");
+      status(serverSession ? "Mode serveur disponible · préparez cet appareil pour analyser aussi hors ligne" : "Appareil non préparé · téléchargez les modèles avant de passer hors ligne");
     }
   } catch (exception) {
     error(exception.message);

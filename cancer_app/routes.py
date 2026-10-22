@@ -14,7 +14,6 @@ from .inference import ModelLoadError, normalize_uploaded_image
 from .interpretation import interpret
 from .security import admin_only, safe_next
 from .segmentation_policy import enforce_segmentation_policy
-from .storage import RECOVERY_USERNAME
 
 
 def register_routes(app: Flask) -> None:
@@ -52,15 +51,13 @@ def register_routes(app: Flask) -> None:
                 session.clear()
                 session.update(user_id=user["id"], auth_version=user["auth_version"], csrf_token=secrets.token_hex(32))
                 session.permanent = True
-                store.audit(user, "Connexion de secours" if user.get("is_recovery") else "Connexion", username)
+                store.audit(user, "Connexion", username)
                 if user["role"] == "admin":
                     return redirect(url_for("admin"))
                 destination = safe_next(request.form.get("next"))
                 if destination.split("?", 1)[0].rstrip("/").startswith("/admin"):
                     destination = url_for("index")
                 return redirect(destination)
-            if username == RECOVERY_USERNAME:
-                store.audit({"name": "Accès de secours", "is_recovery": True}, "Connexion de secours refusée", RECOVERY_USERNAME)
             error = "Identifiant ou mot de passe incorrect, ou compte désactivé."
         return render_template("login.html", error=error)
 
@@ -75,12 +72,28 @@ def register_routes(app: Flask) -> None:
     def index():
         if g.user["role"] == "admin":
             return redirect(url_for("admin"))
-        return render_template("index.html")
+        return redirect(url_for("offline_asset"))
 
     @app.get("/workspace")
     def medical_workspace():
         """Explicit access to the medical workspace, separate from admin home."""
+        return redirect(url_for("offline_asset"))
+
+    @app.get("/workspace/server")
+    def classic_workspace():
+        """Compatibility view; the normal medical entry point is now unified."""
         return render_template("index.html")
+
+    @app.get("/api/session")
+    def session_context():
+        # Read at runtime only: never embed credentials into the cached PWA shell.
+        return jsonify(
+            user={"name": g.user["name"], "role": g.user["role"]},
+            csrf_token=session["csrf_token"], analyze_url=url_for("analyze"),
+            history_url=url_for("history"), dashboard_url=url_for("dashboard"),
+            admin_url=url_for("admin") if g.user["role"] == "admin" else None,
+            logout_url=url_for("logout"),
+        )
 
     @app.get("/api/health")
     def health():

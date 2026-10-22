@@ -6,6 +6,14 @@ elle ne réutilise pas la session ni les données serveur de l'application princ
 
 ## Test sur téléphone
 
+Dans la version Flask intégrée, un seul lancement `python app.py` sert l'application
+et cette interface sous `/workspace/`, sur le même domaine et le même port. La page
+propose Automatique / Serveur / Local. Le serveur nécessite une session connectée
+et conserve ses examens dans le compte ; le mode local ne transmet aucune image.
+Les instructions de coupure ci-dessous concernent le mode local après préparation.
+Les historiques ne sont pas synchronisés et l'archive locale reste accessible sur
+un appareil partagé, y compris après déconnexion du compte serveur.
+
 1. Ouvrir l'adresse HTTPS du laboratoire dans Chrome sur Android ou Safari sur iPhone.
    Utiliser le navigateur directement, pas le navigateur intégré de WhatsApp ou Facebook,
    et éviter la navigation privée.
@@ -46,7 +54,7 @@ n'est pas non plus un mode de lancement pris en charge.
   seuil 0,5 et plus grande composante ; pas de segmentation pour une classe prédite normale.
 - Téléchargement des modèles vérifié par SHA-256, cache de l'interface et du moteur,
   rechargement possible sans serveur une fois la préparation terminée.
-- Aucun envoi d'image, aucun appel à l'API d'analyse et aucune écriture dans les dossiers
+- En mode local : aucun envoi d'image, aucun appel à l'API d'analyse et aucune écriture dans les dossiers
   médicaux. L'image source, l'empreinte, les résultats, le masque, la date et les retours
   médecin facultatifs sont conservés dans IndexedDB sur cet appareil pour rouvrir
   l'examen et son rapport hors ligne. L'espace de stockage utilisé dépend de la taille
@@ -54,8 +62,10 @@ n'est pas non plus un mode de lancement pris en charge.
 - Le même fichier exact est détecté par empreinte SHA-256 et signalé avant une nouvelle
   analyse. Le tableau de bord et l'historique présentent les analyses et retours locaux.
 - L'interface reprend le parcours, les couleurs et les composants de la zone d'analyse
-  en ligne. La PWA n'a pas de connexion serveur, de tableau de bord partagé ni de
-  synchronisation entre appareils.
+  en ligne. Lorsqu'elle est servie par Flask sous `/workspace/`, le mode serveur réutilise
+  la session du compte et l'API protégée, avec Grad-CAM et liens vers le rapport et
+  l'historique du compte. La distribution statique autonome reste locale uniquement.
+  Les historiques locaux ne sont pas synchronisés entre appareils ni vers le compte.
 
 ## Limites à connaître
 
@@ -69,7 +79,7 @@ n'est pas non plus un mode de lancement pris en charge.
   médical validé : certaines autres images en niveaux de gris peuvent encore passer,
   et une échographie de qualité insuffisante peut être rejetée. Un détecteur dédié
   entraîné sur échographies ET images hors domaine reste nécessaire pour aller plus loin.
-- Pas encore de Grad-CAM hors ligne, de comptes, de tableau de bord partagé ni de
+- Pas encore de Grad-CAM hors ligne, de connexion de compte hors ligne ni de
   synchronisation. Un retour médecin local ne modifie pas les données de la plateforme
   et ne déclenche aucun apprentissage du modèle.
 - Les scores ne sont pas des probabilités cliniques calibrées. L'absence de masque pour

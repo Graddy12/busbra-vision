@@ -37,6 +37,11 @@ h1 em { color: var(--teal); font-style: normal; }
 .offline-strip>div { flex: 1; min-width: 0; }
 .offline-strip strong { font-size: .8rem; }
 .offline-strip p { margin: 3px 0 0; color: var(--muted); font-size: .72rem; }
+.engine-control { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 24px; margin-bottom: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--white); }
+.engine-control label { flex: 0 1 270px; font-size: .82rem; font-weight: 600; }
+.engine-control p { flex: 1 1 240px; margin: 0; line-height: 1.6; }
+.server-result-links { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0; }
+.server-result-links p { flex-basis: 100%; }
 progress { width: 130px; accent-color: var(--teal); }
 .workspace { display: grid; grid-template-columns: minmax(0,.86fr) minmax(0,1.14fr); background: var(--white); border: 1px solid rgba(20,70,70,.08); border-radius: 24px; box-shadow: var(--shadow); overflow: hidden; }
 .upload-panel, .results-panel { min-width: 0; padding: clamp(25px,3.5vw,44px); }

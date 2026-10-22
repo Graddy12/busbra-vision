@@ -19,7 +19,8 @@ from werkzeug.security import generate_password_hash
 from .segmentation_policy import enforce_segmentation_policy, present_analysis
 
 
-RECOVERY_USERNAME = "secours"
+# Permanently reserved: old credentials and old sessions must never work again.
+RETIRED_RECOVERY_USERNAME = "secours"
 
 
 def now() -> str:
@@ -57,6 +58,13 @@ class JsonStore:
                     print("Compte initial admin créé avec le mot de passe fourni par la configuration privée.", flush=True)
                 else:
                     print(f"Compte initial : admin | Mot de passe : {password}", flush=True)
+            legacy = self.root / "recovery.json"
+            if legacy.exists():
+                if not any(u["active"] and u["role"] == "admin" and self._ordinary_account(u) for u in users):
+                    raise RuntimeError("Rétablissez un administrateur ordinaire actif avant de retirer l'ancien accès de secours.")
+                legacy.unlink()
+                self._audit({"id": "system-migration", "name": "Migration du système"},
+                            "Suppression de l'ancien compte de secours", RETIRED_RECOVERY_USERNAME)
 
     @contextmanager
     def lock(self):
@@ -127,82 +135,25 @@ class JsonStore:
     def user(self, ident):
         return next((u for u in self.users() if u["id"] == ident), None)
 
-    def _recovery(self):
-        """Called under the store lock. Never included in the web user directory."""
-        return self.read("recovery") if (self.root / "recovery.json").exists() else None
+    @staticmethod
+    def _ordinary_account(user):
+        return (user.get("username") != RETIRED_RECOVERY_USERNAME
+                and not user.get("is_recovery")
+                and not str(user.get("id", "")).startswith("recovery-"))
 
     def login_user(self, username):
+        if username == RETIRED_RECOVERY_USERNAME:
+            return None
         with self.lock():
-            recovery = self._recovery() if username == RECOVERY_USERNAME else None
-            return recovery or next((u for u in self.read("users") if u["username"] == username), None)
+            return next((u for u in self.read("users") if u["username"] == username
+                         and self._ordinary_account(u)), None)
 
     def session_user(self, ident):
+        if str(ident).startswith("recovery-"):
+            return None
         with self.lock():
-            # An optional recovery-file problem must not break ordinary sessions.
-            recovery = self._recovery() if str(ident).startswith("recovery-") else None
-            if recovery and recovery["id"] == ident:
-                return recovery
-            return next((u for u in self.read("users") if u["id"] == ident), None)
-
-    @staticmethod
-    def _new_recovery():
-        return {
-            "id": f"recovery-{uuid.uuid4().hex}", "username": RECOVERY_USERNAME,
-            "name": "Administrateur de secours", "specialty": "Maintenance",
-            "role": "admin", "active": True, "is_recovery": True,
-            "auth_version": 1, "created_at": now(),
-        }
-
-    def bootstrap_recovery(self, password_hash):
-        """One-time deployment setup, never a password reset or reactivation."""
-        with self.lock():
-            # A disabled, rotated or even damaged existing file must not be overwritten.
-            if (self.root / "recovery.json").exists():
-                return False
-            if not isinstance(password_hash, str) or not re.fullmatch(
-                r"scrypt:32768:8:1\$[a-zA-Z0-9]{16,64}\$[0-9a-f]{128}", password_hash
-            ):
-                raise ValueError("BUSBRA_RECOVERY_PASSWORD_HASH exige une empreinte scrypt valide, pas un mot de passe en clair.")
-            if any(u["username"] == RECOVERY_USERNAME for u in self.read("users")):
-                raise ValueError("L'identifiant secours est déjà utilisé par un compte ordinaire.")
-            recovery = self._new_recovery()
-            recovery.update(password_hash=password_hash, updated_at=now())
-            self.write("recovery", recovery)
-            actor = {"id": "deployment-bootstrap", "username": "configuration", "name": "Configuration privée du déploiement"}
-            self._audit(actor, "Initialisation du compte de secours", RECOVERY_USERNAME)
-            return True
-
-    def manage_recovery(self, operation, password=None):
-        """Local maintenance only: no HTTP endpoint and no default master password."""
-        if operation not in {"create", "rotate", "disable"}:
-            raise ValueError("Commande de secours inconnue.")
-        if operation != "disable" and (not password or not 20 <= len(password) <= 200):
-            raise ValueError("Le mot de passe de secours doit contenir de 20 à 200 caractères.")
-        with self.lock():
-            recovery = self._recovery()
-            if operation == "create":
-                if recovery:
-                    raise ValueError("Le compte de secours existe déjà. Utilisez rotate pour renouveler son accès.")
-                if any(u["username"] == RECOVERY_USERNAME for u in self.read("users")):
-                    raise ValueError("L'identifiant secours est déjà utilisé. Renommez ce compte avant la création.")
-                recovery = self._new_recovery()
-            elif not recovery:
-                raise ValueError("Aucun compte de secours configuré. Utilisez create.")
-            else:
-                recovery["auth_version"] += 1
-            if operation == "disable":
-                recovery["active"] = False
-            else:
-                recovery.update(active=True, password_hash=generate_password_hash(password))
-            recovery["updated_at"] = now()
-            self.write("recovery", recovery)
-            actor = {"id": "local-maintenance", "username": "terminal", "name": "Maintenance locale"}
-            label = {
-                "create": "Création du compte de secours", "rotate": "Renouvellement du compte de secours",
-                "disable": "Désactivation du compte de secours",
-            }[operation]
-            self._audit(actor, label, RECOVERY_USERNAME)
-            return {k: v for k, v in recovery.items() if k != "password_hash"}
+            return next((u for u in self.read("users") if u["id"] == ident
+                         and self._ordinary_account(u)), None)
 
     def save_user(self, actor, values, user_id=None):
         username = values.get("username", "").strip().lower()
@@ -212,8 +163,8 @@ class JsonStore:
         password = values.get("password", "")
         if not re.fullmatch(r"[a-z0-9_.@-]{3,80}", username):
             raise ValueError("Identifiant : 3 à 80 caractères, lettres sans accents, chiffres, . _ @ ou -.")
-        if username == RECOVERY_USERNAME:
-            raise ValueError("Cet identifiant est réservé à la maintenance locale.")
+        if username == RETIRED_RECOVERY_USERNAME:
+            raise ValueError("Cet ancien identifiant a été retiré et ne peut plus être utilisé.")
         if not 2 <= len(name) <= 120 or len(specialty) > 120:
             raise ValueError("Vérifiez le nom et la spécialité (120 caractères maximum).")
         if role not in {"admin", "doctor"}:

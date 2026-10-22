@@ -7,6 +7,7 @@ from flask import Flask
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .inference import CombinedPredictor
+from .offline import register_offline_routes
 from .routes import register_routes
 from .security import init_security
 from .storage import JsonStore
@@ -35,17 +36,14 @@ def create_app(test_config: dict | None = None, predictor=None) -> Flask:
         INFERENCE_DEVICE=os.getenv("INFERENCE_DEVICE", "cpu"),
         DATA_DIR=os.getenv("BUSBRA_DATA_DIR", str(project_root / "instance")),
         BOOTSTRAP_ADMIN_PASSWORD=os.getenv("BUSBRA_ADMIN_PASSWORD"),
-        BOOTSTRAP_RECOVERY_PASSWORD_HASH=os.getenv("BUSBRA_RECOVERY_PASSWORD_HASH"),
         PRODUCTION=os.getenv("BUSBRA_PRODUCTION", "0") == "1",
-        OFFLINE_PWA_URL=os.getenv("BUSBRA_OFFLINE_PWA_URL"),
+        OFFLINE_ASSET_DIR=os.getenv("BUSBRA_OFFLINE_ASSET_DIR", str(project_root / "offline_poc")),
+        OFFLINE_PWA_URL="/workspace/",
         SECRET_KEY=os.getenv("BUSBRA_SECRET_KEY") or None,
     )
 
     if test_config:
         app.config.update(test_config)
-
-    if not app.config["PRODUCTION"] and not app.config["OFFLINE_PWA_URL"]:
-        app.config["OFFLINE_PWA_URL"] = "http://127.0.0.1:5091/"
 
     if app.config["PRODUCTION"]:
         if len(app.config["BOOTSTRAP_ADMIN_PASSWORD"] or "") < 16:
@@ -61,8 +59,6 @@ def create_app(test_config: dict | None = None, predictor=None) -> Flask:
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=0, x_port=0)
 
     store = JsonStore(app.config["DATA_DIR"], app.config["BOOTSTRAP_ADMIN_PASSWORD"])
-    if app.config["BOOTSTRAP_RECOVERY_PASSWORD_HASH"]:
-        store.bootstrap_recovery(app.config["BOOTSTRAP_RECOVERY_PASSWORD_HASH"])
     app.secret_key = app.config.get("SECRET_KEY") or store.secret_key
     app.extensions["store"] = store
     init_security(app, store)
@@ -85,5 +81,6 @@ def create_app(test_config: dict | None = None, predictor=None) -> Flask:
         )
 
     app.extensions["combined_predictor"] = predictor
+    register_offline_routes(app)
     register_routes(app)
     return app

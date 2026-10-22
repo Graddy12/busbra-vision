@@ -1,5 +1,5 @@
 {
-  "id": "/", "name": "BUSBRA Vision", "short_name": "BUSBRA Vision",
+  "name": "BUSBRA Vision", "short_name": "BUSBRA Vision",
   "start_url": "./", "scope": "./", "display": "standalone", "lang": "fr",
   "theme_color": "#153c48", "background_color": "#f1f5f4",
   "icons": [{"src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}]

@@ -4,7 +4,7 @@
 <header class="admin-topbar no-print">
   <a class="brand" href="{{ url_for('admin') }}"><span class="brand-mark" aria-hidden="true"></span><span>BUSBRA <strong>Vision</strong></span></a>
   <span class="admin-area-label">Espace administration</span>
-  {% if config.OFFLINE_PWA_URL %}<a class="btn small secondary pwa-launch" href="{{ config.OFFLINE_PWA_URL }}" target="_blank" rel="noopener">Essayer la PWA hors ligne</a>{% endif %}
+  <a class="btn small secondary pwa-launch" href="{{ url_for('offline_asset') }}">Ouvrir l'analyse web / hors ligne</a>
   <div class="account-menu"><span><strong>{{ current_user.name }}</strong><small>Administrateur</small></span><form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn small secondary" type="submit">Déconnexion</button></form></div>
 </header>
 {% endblock %}
@@ -18,7 +18,7 @@
     </nav>
     <div class="admin-workspace-switch"><p class="quiet">Changer d'espace</p><a class="text-link" href="{{ url_for('medical_workspace') }}">Ouvrir l'espace médical →</a><p class="quiet">Analyses, tableau de bord et historique.</p></div>
   </aside>
-  <div class="admin-main">{% if current_user.is_recovery %}<div class="flash-wrap"><p class="flash" role="status">Mode secours : rétablissez les accès nécessaires puis déconnectez-vous. Vos actions sont journalisées. Ce compte se gère uniquement depuis le terminal.</p></div>{% endif %}{% block admin_content %}{% endblock %}</div>
+  <div class="admin-main">{% block admin_content %}{% endblock %}</div>
 </div>
 {% endblock %}
 {% block footer %}<footer class="no-print">BUSBRA Vision · Espace d'administration du système</footer>{% endblock %}

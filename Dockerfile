@@ -22,9 +22,13 @@ COPY scripts/download_models.py ./scripts/download_models.py
 RUN python scripts/download_models.py
 
 COPY cancer_app ./cancer_app
+COPY offline_poc ./offline_poc
+COPY scripts/build_offline_static.py ./scripts/build_offline_static.py
+# Download only verified public runtime/model assets; never copy local app data.
+RUN python scripts/build_offline_static.py
+ENV BUSBRA_OFFLINE_ASSET_DIR=/app/output/render_static
 COPY classification_package/config_modele.json ./classification_package/config_modele.json
 COPY segmentation_package/selection.json ./segmentation_package/selection.json
 COPY app.py wsgi.py gunicorn.conf.py ./
-COPY scripts/manage_recovery.py ./scripts/manage_recovery.py
 
 CMD ["gunicorn", "--config", "gunicorn.conf.py", "wsgi:app"]

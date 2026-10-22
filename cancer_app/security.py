@@ -20,7 +20,7 @@ def init_security(app, store):
                 g.user = {k: v for k, v in user.items() if k != "password_hash"}
             else:
                 session.clear()
-        if request.endpoint not in {"login", "static", "health"} and not g.user:
+        if request.endpoint not in {"login", "static", "health", "offline_asset", "legacy_offline_asset"} and not g.user:
             if request.path.startswith("/api/"):
                 return jsonify(error="Votre session a expiré. Reconnectez-vous.", login_url=url_for("login")), 401
             return redirect(url_for("login", next=request.path))

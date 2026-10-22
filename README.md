@@ -15,6 +15,8 @@ du masque sur l'image source.
 
 ## Hébergement Railway
 
+Pour la version unifiée à déployer sur VPS, voir [DEPLOYMENT_VPS.md](DEPLOYMENT_VPS.md).
+
 Le dépôt inclut un Dockerfile CPU, Gunicorn et la configuration Railway.
 Voir [DEPLOYMENT.md](DEPLOYMENT.md) pour le volume persistant, les secrets et
 le démarrage. Les modèles sont distribués séparément dans la release `models-v1`
@@ -64,18 +66,42 @@ Sous Windows, le moyen le plus simple est de double-cliquer sur `start_app.bat`.
 Ce lanceur sélectionne directement le Python de `.venv` et force le backend Keras
 correct ; il n'est pas nécessaire d'activer manuellement l'environnement virtuel.
 
-Attendre les messages `Les deux modeles sont charges`, `PWA hors ligne disponible`
-et `Running on http://127.0.0.1:5001`. Le navigateur s'ouvre automatiquement,
-ou ouvrir <http://127.0.0.1:5001>. Après connexion, le bouton **Essayer la PWA
-hors ligne** ouvre le laboratoire sur <http://127.0.0.1:5091>. Préparer le mode
-hors ligne pendant que la connexion est disponible ; l'installation se fait
-ensuite depuis le menu du navigateur. La PWA n'envoie pas les images au serveur
-et son historique reste séparé de celui de la plateforme. Laisser le terminal
-ouvert pendant l'utilisation. `Ctrl+C` arrête les deux serveurs.
+Attendre les messages `Les deux modeles sont charges` et
+`Running on http://127.0.0.1:5001`, puis ouvrir <http://127.0.0.1:5001>.
+Un seul serveur et un seul port sont nécessaires : la PWA fait maintenant partie
+de Flask, sous `/workspace/`. Après connexion, le médecin arrive sur cette interface
+unifiée ; l'administrateur conserve son accueil `/admin` et peut ouvrir l'analyse.
+Les anciennes options `--pwa-port` et `--no-pwa` ne sont plus nécessaires.
 
-Si le port 5091 est déjà utilisé, choisir un autre port PWA avec
-`--pwa-port 5092` ; le lien local de la plateforme utilise le port 5091 par
-défaut. Pour démarrer uniquement la plateforme, ajouter `--no-pwa`.
+Dans la même page, choisir le moteur :
+
+- **Automatique** : serveur si une session connectée est disponible, sinon local ;
+- **Serveur** : image envoyée à Flask, Grad-CAM, historique et rapport du compte ;
+- **Local** : calcul dans le navigateur, sans envoi d'image, historique et rapport locaux.
+
+Cliquer sur **Préparer cet appareil** pendant que le serveur est disponible,
+puis attendre **Prêt** avant de couper la connexion. Installer ensuite l'application
+depuis le navigateur si souhaité. Le lien à conserver pour un démarrage hors ligne est
+<http://127.0.0.1:5001/workspace/> (ou le même chemin sur le domaine HTTPS public).
+L'ancien chemin `/offline/` redirige vers cet espace neutre ; le mode de calcul
+est déterminé par le sélecteur, pas par le nom de l'adresse.
+La page de connexion et les pages d'administration ne sont jamais mises en cache.
+Laisser le terminal ouvert pour le mode serveur ; `Ctrl+C` arrête cet unique serveur.
+Une réponse serveur perdue ne déclenche jamais une seconde analyse automatiquement.
+
+Les historiques restent séparés et ne sont pas synchronisés à ce stade. Les données
+locales ne sont pas protégées par la session Flask : sur un appareil partagé, elles
+restent accessibles après déconnexion. Utiliser uniquement des images de démonstration
+non identifiantes. Aucun jeton de session ni mot de passe n'est enregistré dans la PWA.
+
+Les fichiers ONNX et le moteur WASM doivent être présents dans `offline_poc/models`
+et `offline_poc/vendor` pour préparer le mode local. Ils sont déjà disponibles dans
+cet espace de travail, mais ne sont pas suivis dans Git. Sur un autre hébergement,
+installer également ces ressources publiques vérifiées (voir `offline_poc/README.md`),
+ou définir `BUSBRA_OFFLINE_ASSET_DIR` vers un dossier construit par
+`scripts/build_offline_static.py`. Sans ces binaires, le mode serveur reste disponible
+et l'interface indique que le moteur local n'est pas installé. Cette modification
+locale ne redéploie pas automatiquement les services déjà publiés.
 
 Le mode CPU est utilisé par défaut. Pour tenter l'inférence CUDA côté PyTorch :
 
@@ -94,6 +120,7 @@ L'API d'analyse nécessite une session connectée et le jeton CSRF de la page
 (`X-CSRF-Token`). L'interface web gère ces deux éléments automatiquement.
 
 - `GET /api/health` : état du service et chargement des modèles ;
+- `GET /api/session` : contexte de connexion et jeton CSRF en mémoire, sans cache ;
 - `POST /api/analyze` : analyse combinée, champ multipart `image` ;
 - taille maximale : 16 Mo ; formats : PNG, JPEG, BMP, TIFF et WebP.
 
@@ -109,53 +136,21 @@ dans les JSON. Pour choisir ce premier mot de passe, définir
 - deux rôles : administrateur et médecin, avec une spécialité libre ;
 - connexion administrateur : arrivée directe sur `/admin`, dans une interface
   dédiée avec sa propre navigation (utilisateurs et journal) ;
-- connexion médecin : arrivée sur `/`, dans l'espace d'analyse ;
+- connexion médecin : arrivée sur `/`, puis redirection vers `/workspace/`, l'analyse unifiée ;
 - l'administrateur peut ouvrir explicitement l'espace médical via `/workspace`,
   sans mélanger sa navigation avec l'interface de gestion ;
 - un compte désactivé ou un mot de passe réinitialisé ferme les anciennes sessions ;
 - le dernier administrateur actif et votre propre compte sont protégés contre une désactivation involontaire.
 
-### Compte administrateur de secours
+### Aucun compte caché ni accès de secours
 
-Un compte de secours optionnel, `secours`, est séparé de `users.json`. Il se
-connecte sur `/login` avec les mêmes vérifications de mot de passe, CSRF, limitation
-des tentatives et durée de session que les autres comptes. Il dispose du rôle
-administrateur : création de comptes, réactivation et réinitialisation des mots
-de passe depuis `/admin`. Il a donc aussi les droits d'accès aux analyses d'un admin.
-
-Il est **absent de la liste des utilisateurs**, mais pas du journal : ses connexions
-et actions sont identifiées comme celles de l'administrateur de secours. Ce n'est
-ni un accès anonyme ni un mot de passe universel. Son profil ne peut être modifié,
-désactivé ou supprimé depuis les routes web, même avec son propre accès.
-
-Depuis `D:\cancer`, créer l'accès une seule fois :
-
-```powershell
-.\.venv\Scripts\python.exe -m scripts.manage_recovery create
-```
-
-Un mot de passe aléatoire unique de 32 caractères est affiché une seule fois ; le
-conserver dans un gestionnaire de mots de passe privé, hors du dossier du projet.
-Aucun mot de passe de secours n'est codé en dur ni enregistré en clair.
-
-Pour renouveler l'accès (ou le réactiver avec un nouveau mot de passe), ou le
-désactiver :
-
-```powershell
-.\.venv\Scripts\python.exe -m scripts.manage_recovery rotate
-.\.venv\Scripts\python.exe -m scripts.manage_recovery disable
-```
-
-Ces opérations révoquent immédiatement les sessions de secours existantes sans
-redémarrage. `create` refuse d'écraser un compte existant. Pour un autre stockage,
-utiliser `BUSBRA_DATA_DIR` ou `--data-dir "chemin"`. Le compte n'est pas créé
-automatiquement sur une nouvelle installation et ses secrets ne sont pas inclus
-dans l'archive de distribution. Aucune remise à zéro ni suppression des données
-n'est effectuée : cet accès sert uniquement à rétablir les accès nécessaires.
-
-Sur Railway sans accès SSH, une initialisation unique depuis une empreinte privée
-est également disponible ; voir [DEPLOYMENT.md](DEPLOYMENT.md). Elle ne remplace
-jamais un compte existant, même désactivé, et n'ajoute aucune route de maintenance.
+L'ancien compte `secours` a été retiré. Ses identifiants et ses anciennes sessions
+ne sont plus acceptés. Les mécanismes de création et de réactivation ont été supprimés.
+Une ancienne variable `BUSBRA_RECOVERY_PASSWORD_HASH` est ignorée et doit être retirée
+de la configuration de déploiement. Au démarrage, l'ancien `recovery.json` est supprimé
+et l'opération journalisée, sans toucher aux comptes ordinaires ni aux analyses.
+Un administrateur ordinaire actif doit exister avant cette migration.
+Les anciennes entrées du journal sont conservées pour la traçabilité.
 
 ## Historique, revue et rapports
 
@@ -186,7 +181,6 @@ Les données sont désormais conservées dans `instance/` (ou `BUSBRA_DATA_DIR`)
 
 ```text
 users.json       profils et empreintes des mots de passe
-recovery.json    compte de secours optionnel, empreinte uniquement, maintenance locale
 analyses.json    résultats, références, propriétaires et revues
 audit.json       journal des 2 000 dernières actions
 images/<id>/    original, masque, superposition et Grad-CAM
@@ -203,8 +197,8 @@ une démonstration locale ; le stockage n'est pas chiffré au repos.
 
 Les tests HTTP utilisent un prédicteur factice et ne chargent pas les poids lourds.
 Ils vérifient également les sessions, les droits, le CSRF, la corbeille et les
-écritures concurrentes, ainsi que l'isolation, la révocation et les droits du
-compte de secours. `scripts/check_browser.cjs` utilise Playwright et Edge
+écritures concurrentes, ainsi que le refus définitif des anciens accès de
+secours. `scripts/check_browser.cjs` utilise Playwright et Edge
 pour tester le parcours complet avec les vrais modèles, dans un stockage isolé.
 
 ```powershell

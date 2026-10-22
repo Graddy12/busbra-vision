@@ -1,8 +1,10 @@
 # Déploiement GitHub → Railway
 
+Pour le transfert de la version unifiée sur VPS, utiliser [DEPLOYMENT_VPS.md](DEPLOYMENT_VPS.md).
+
 Cette application est une démonstration académique, pas un dispositif médical.
 Ne pas y charger de données patient identifiantes. Les données locales et les
-comptes de développement, y compris le compte de secours, ne sont jamais publiés.
+comptes de développement ne sont jamais publiés.
 
 ## Code et modèles
 
@@ -47,36 +49,15 @@ Le serveur Flask de développement n'est pas utilisé en ligne.
 Le mot de passe de bootstrap n'est utilisé que si le fichier des utilisateurs est
 vide. Modifier la variable après création ne réinitialise pas un compte existant.
 
-## Compte de secours en ligne
+## Retrait de l'ancien accès de secours
 
-Le compte de secours local n'est **pas** transféré. Deux méthodes permettent de
-créer un compte indépendant pour l'hébergement, sans route web de maintenance.
-
-### Initialisation sans SSH
-
-Définir la variable privée `BUSBRA_RECOVERY_PASSWORD_HASH` avec une empreinte
-Werkzeug `scrypt:32768:8:1` (sel aléatoire, au moins 16 caractères). Le mot de passe
-initial doit être unique et aléatoire, d'au moins 20 caractères. Transmettre
-l'empreinte par entrée standard à la CLI Railway, jamais par un fichier versionné
-ou un argument contenant le secret. Ne jamais mettre le mot de passe en clair
-dans cette variable.
-
-Au prochain démarrage, l'application crée `/data/recovery.json` uniquement s'il
-n'existe pas, puis journalise cette initialisation. Un fichier existant n'est
-jamais écrasé : une rotation ou désactivation reste donc effective. Après avoir
-vérifié la connexion `secours`, retirer la variable d'initialisation ; le compte
-persiste sur le volume et ne dépend plus de cette variable.
-
-### Maintenance depuis le conteneur
-
-Avec un accès terminal au conteneur Railway, la création reste possible ainsi :
-
-```text
-python -m scripts.manage_recovery create
-```
-
-Conserver le mot de passe affiché dans un gestionnaire privé. Les commandes
-`rotate` et `disable` restent disponibles ; aucune route web ne modifie ce compte.
+Cette version ne contient plus de compte caché. Ne pas définir
+`BUSBRA_RECOVERY_PASSWORD_HASH` ; supprimer cette ancienne variable si elle existe.
+Au premier démarrage de la nouvelle version, l'ancien fichier `recovery.json` est
+supprimé et ses sessions sont refusées. Un administrateur ordinaire actif doit
+exister avant la migration. Les utilisateurs, les analyses et le journal passé
+ne sont pas effacés. Les anciens services déjà en ligne ne bénéficient de ce
+retrait qu'après déploiement de cette version.
 
 ## Vérifications et limites
 

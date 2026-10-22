@@ -73,12 +73,13 @@ def analyze(client):
 
 def test_home_page(client):
     assert client.get("/").location == "/admin"
-    response = client.get("/workspace")
+    assert client.get("/workspace").location == "/workspace/"
+    response = client.get("/workspace/")
     assert response.status_code == 200
-    assert "Nouvelle analyse" in response.get_data(as_text=True)
-    assert b'Essayer la PWA hors ligne' in response.data
-    assert b'http://127.0.0.1:5091/' in response.data
-    assert b'Essayer la PWA hors ligne' in client.get("/admin").data
+    assert "Résultats combinés" in response.get_data(as_text=True)
+    assert b'id="engine-mode"' in response.data
+    assert b'5091' not in response.data
+    assert b'href="/workspace/"' in client.get("/admin").data
 
 
 def test_pwa_invitation_requires_authentication(app):
@@ -191,7 +192,7 @@ def test_admin_create_edit_disable_and_reset(app, client):
     assert "DoctorPass!2026" not in user["password_hash"]
     other = app.test_client()
     login(other, "oncologue", "DoctorPass!2026")
-    assert other.get("/").status_code == 200
+    assert other.get("/", follow_redirects=True).status_code == 200
     client.post(f"/admin/users/{user['id']}/toggle", data={"csrf_token": csrf(client)})
     assert other.get("/").status_code == 302
     client.post(f"/admin/users/{user['id']}/toggle", data={"csrf_token": csrf(client)})
@@ -256,7 +257,7 @@ def test_admin_pages_have_a_separate_layout(app, client):
         assert "data-admin-shell" in html
         assert 'aria-label="Navigation administration"' in html
         assert 'aria-label="Navigation principale"' not in html
-    workspace = client.get("/workspace").get_data(as_text=True)
+    workspace = client.get("/workspace", follow_redirects=True).get_data(as_text=True)
     assert 'aria-label="Navigation principale"' in workspace
     assert "data-admin-shell" not in workspace
 
@@ -266,7 +267,8 @@ def test_doctor_lands_in_medical_workspace(app):
     user = app.test_client()
     response = login(user, "medecin", "DoctorPass!2026")
     assert response.location == "/"
-    assert user.get("/").status_code == 200
+    assert user.get("/").location == "/workspace/"
+    assert user.get("/", follow_redirects=True).status_code == 200
     assert user.get("/admin/audit").status_code == 403
     user.post("/logout", data={"csrf_token": csrf(user)})
     user.get("/login")
