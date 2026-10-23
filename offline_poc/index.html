@@ -40,7 +40,7 @@
       </div>
       <div class="offline-strip">
         <div><strong id="status">Initialisation…</strong><p id="download-size">Vérification du mode hors ligne…</p></div>
-        <button id="prepare" class="btn secondary small" type="button">Préparer cet appareil</button>
+        <button id="prepare" class="btn secondary small" type="button">Activer le mode hors ligne (115 Mo)</button>
         <progress id="progress" max="100" value="0" hidden></progress>
       </div>
       <p id="error" class="error" role="alert" hidden></p>
@@ -49,12 +49,13 @@
         <div class="upload-panel">
           <div class="section-heading"><p class="step">Étape 01</p><h2>Échographie source</h2></div>
           <label class="exam-reference">Référence de l'examen (facultative)<input id="exam-reference" maxlength="100" placeholder="Ex. DEMO-001"></label>
-          <label id="drop-zone" class="drop-zone" for="image">
+          <div id="drop-zone" class="drop-zone">
             <input id="image" type="file" accept="image/png,image/jpeg" disabled>
             <span class="upload-icon" aria-hidden="true">↑</span>
-            <span class="drop-title">Déposez l'image ici</span>
+            <span class="drop-title">Sélectionnez ou déposez l'image ici</span>
+            <button id="choose-image" class="btn secondary small choose-image" type="button" disabled>Sélectionner une image</button>
             <span class="drop-help">Échographie mammaire en niveaux de gris uniquement · PNG/JPEG · 16 Mo maximum</span>
-          </label>
+          </div>
           <div id="preview-wrap" class="preview-wrap" hidden>
             <img id="source-preview" alt="Aperçu de l'échographie sélectionnée">
             <button id="remove-image" class="remove-image" type="button" aria-label="Retirer l'image">×</button>

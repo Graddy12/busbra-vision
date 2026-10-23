@@ -55,6 +55,7 @@ textarea { resize: vertical; }
 .drop-zone { position: relative; min-height: 300px; border: 1.5px dashed #a9c2bd; border-radius: 18px; background: linear-gradient(145deg,rgba(223,242,233,.35),rgba(255,255,255,.6)); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: .16s ease; }
 .drop-zone:hover, .drop-zone.dragging { border-color: var(--teal); background: var(--mint); transform: translateY(-2px); }
 .drop-zone input { position: absolute; opacity: 0; pointer-events: none; }
+.choose-image { margin: 14px 0 10px; }
 .upload-icon { display: grid; place-items: center; width: 56px; height: 56px; margin-bottom: 18px; border-radius: 50%; color: white; background: var(--teal); font-size: 1.7rem; }
 .drop-title { font-weight: 700; font-size: 1.02rem; }
 .drop-help { max-width: 90%; margin-top: 8px; color: var(--muted); font-size: .78rem; text-align: center; }

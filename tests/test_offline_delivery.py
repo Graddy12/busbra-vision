@@ -75,3 +75,14 @@ def test_offline_interface_matches_online_analysis_workflow_and_keeps_history_lo
     assert 'id="print-report"' in html
     assert 'source.data);' in script
     assert "/api/analyze" not in script
+
+
+def test_server_analysis_stays_available_during_optional_offline_download():
+    html = (ROOT / "offline_poc" / "index.html").read_text(encoding="utf-8")
+    script = (ROOT / "offline_poc" / "app.js").read_text(encoding="utf-8")
+    assert 'id="choose-image"' in html
+    assert "Sélectionner une image" in html
+    assert "busy = false, preparing = false" in script
+    assert '$("#image").disabled = busy;' in script
+    assert '$("#prepare").disabled = busy || preparing;' in script
+    assert "received / model.bytes" in script

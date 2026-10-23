@@ -1,9 +1,9 @@
 "use strict";
-const CACHE = "busbra-offline-poc-v12";
+const CACHE = "busbra-offline-poc-v13";
 const $ = selector => document.querySelector(selector);
 const pending = new Map();
 const integrated = location.pathname.startsWith("/workspace/");
-let worker, manifest, requestId = 0, busy = false, ready = false, selection = null, lastResult = null;
+let worker, manifest, requestId = 0, busy = false, preparing = false, ready = false, selection = null, lastResult = null;
 let databasePromise, installPrompt = null;
 let serverSession = null;
 
@@ -79,8 +79,10 @@ networkStatus();
 function status(message) { $("#status").textContent = message; }
 function error(message) { $("#error").textContent = message; $("#error").hidden = !message; }
 function controls() {
-  $("#prepare").disabled = busy;
+  $("#prepare").disabled = busy || preparing;
+  $("#prepare").textContent = preparing ? "Préparation en arrière-plan…" : "Activer le mode hors ligne (115 Mo)";
   $("#image").disabled = busy;
+  $("#choose-image").disabled = busy;
   $("#analyze").disabled = busy || !canAnalyze() || !selection;
   $("#remove-image").disabled = busy;
   updateEngineUI();
@@ -404,7 +406,8 @@ async function prepared() {
   return true;
 }
 async function prepare() {
-  busy = true;
+  if (preparing) return;
+  preparing = true;
   ready = false;
   controls();
   error("");
@@ -426,19 +429,36 @@ async function prepare() {
       "./vendor/ort.wasm.min.js", "./vendor/ort-wasm-simd-threaded.mjs",
       "./vendor/ort-wasm-simd-threaded.wasm", ...Object.values(manifest.models).map(model => model.url)];
     for (const url of assets) {
-      status(`Préparation ${done + 1}/${assets.length} · ${url.replace("./", "")}`);
+      const model = Object.values(manifest.models).find(item => item.url === url);
+      const size = model ? ` · ${(model.bytes / 1e6).toFixed(1)} Mo` : "";
+      const prefix = engineMode() === "server" ? "Serveur prêt · téléchargement hors ligne" : "Préparation hors ligne";
+      status(`${prefix} ${done + 1}/${assets.length} · ${url.replace("./", "")}${size}`);
       const assetResponse = await fetch(url, { cache: "reload" });
       if (!assetResponse.ok) throw new Error(`Téléchargement impossible : ${url}`);
-      const model = Object.values(manifest.models).find(item => item.url === url);
-      if (model) {
-        const bytes = await assetResponse.clone().arrayBuffer();
-        const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))]
-          .map(byte => byte.toString(16).padStart(2, "0")).join("");
-        if (hash !== model.sha256 || bytes.byteLength !== model.bytes) {
+      if (model && assetResponse.body) {
+        const cacheWrite = cache.put(url, assetResponse.clone());
+        const reader = assetResponse.body.getReader();
+        let received = 0;
+        let lastUpdate = 0;
+        while (true) {
+          const { done: streamDone, value } = await reader.read();
+          if (streamDone) break;
+          received += value.byteLength;
+          const now = performance.now();
+          if (!busy && now - lastUpdate > 200) {
+            status(`${prefix} ${done + 1}/${assets.length} · ${url.replace("./", "")} · ${(received / 1e6).toFixed(1)}/${(model.bytes / 1e6).toFixed(1)} Mo`);
+            lastUpdate = now;
+          }
+          progress.value = (done + Math.min(received / model.bytes, 1)) / assets.length * 100;
+        }
+        await cacheWrite;
+        if (received !== model.bytes) {
+          await cache.delete(url);
           throw new Error(`Fichier incomplet ou altéré : ${url}`);
         }
+      } else {
+        await cache.put(url, assetResponse);
       }
-      await cache.put(url, assetResponse);
       progress.value = ++done / assets.length * 100;
     }
     await cache.put("./__offline_ready__", new Response(JSON.stringify({
@@ -447,12 +467,13 @@ async function prepare() {
     })));
     if (navigator.storage?.persist) await navigator.storage.persist();
     await startEngine();
+    status(engineMode() === "server" ? "Prêt · serveur actif et mode hors ligne disponible" : "Prêt · analyse locale activée");
   } catch (exception) {
     ready = false;
     status("Préparation incomplète · rétablir la connexion et réessayer");
     error(exception.message);
   } finally {
-    busy = false;
+    preparing = false;
     controls();
   }
 }
@@ -514,6 +535,9 @@ async function selectImage(file) {
   controls();
 }
 $("#image").addEventListener("change", event => selectImage(event.target.files[0]));
+$("#choose-image").addEventListener("click", () => {
+  if (!$("#image").disabled) $("#image").click();
+});
 $("#remove-image").addEventListener("click", () => {
   selection = null;
   lastResult = null;
