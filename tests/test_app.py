@@ -101,10 +101,29 @@ def test_combined_analysis_endpoint(client, app):
     assert payload["segmentation"]["lesion_detected"] is True
     assert payload["meta"]["filename"] == "echographie.png"
     assert payload["analysis"]["id"]
+    assert payload["analysis"]["feedback_url"].endswith(f"/api/analyses/{payload['analysis']['id']}/feedback")
     row = app.extensions["store"].read("analyses")[0]
     assert "overlay_data_url" not in row["result"]["gradcam"]
     assert client.get(payload["analysis"]["history_url"]).status_code == 200
     assert client.get(payload["analysis"]["report_url"]).status_code == 200
+
+
+def test_server_feedback_is_saved_and_visible_in_report(client, app):
+    payload = analyze(client).get_json()
+    ident = payload["analysis"]["id"]
+    response = client.post(
+        payload["analysis"]["feedback_url"],
+        headers={"X-CSRF-Token": csrf(client)},
+        json={"assessment": "incorrect", "corrected_class": "malignant", "note": "À revoir en réunion."},
+    )
+    assert response.status_code == 200
+    row = app.extensions["store"].analysis(app.extensions["store"].users()[0], ident)
+    assert row["feedback"]["is_incorrect"] is True
+    assert row["feedback"]["corrected_class"] == "malignant"
+    assert row["status"] == "validated"
+    report = client.get(payload["analysis"]["report_url"]).get_data(as_text=True)
+    assert "classe corrigée : Maligne" in report
+    assert "À revoir en réunion." in report
 
 
 def test_missing_upload_is_rejected(client):

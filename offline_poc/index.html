@@ -88,7 +88,7 @@
             <p id="gradcam-note" class="quiet" hidden>Grad-CAM indique les zones contribuant à la classification, pas le contour d'une lésion.</p>
             <div id="server-result-links" class="server-result-links" hidden><a id="server-detail" class="btn secondary">Consulter / ajouter l'avis du médecin</a><a id="server-report" class="btn secondary">Imprimer le rapport serveur</a><p class="quiet">Cet examen est enregistré dans votre compte, pas dans l'historique local.</p></div>
             <form id="feedback-form" class="feedback-form">
-              <p class="card-kicker">Retour médecin · enregistré sur cet appareil</p>
+              <p id="feedback-kicker" class="card-kicker">Retour médecin · enregistré sur cet appareil</p>
               <h3>La prédiction est-elle incorrecte ?</h3>
               <fieldset class="feedback-choice">
                 <legend>Votre appréciation</legend>
@@ -104,7 +104,7 @@
                 </select>
               </label>
               <label>Commentaire (facultatif)<textarea id="feedback-note" rows="3" maxlength="2000" placeholder="Votre observation…"></textarea></label>
-              <button class="btn secondary" type="submit">Enregistrer le retour</button>
+              <button id="feedback-submit" class="btn secondary" type="submit">Enregistrer le retour</button>
               <p id="feedback-status" class="quiet" role="status"></p>
             </form>
           </section>

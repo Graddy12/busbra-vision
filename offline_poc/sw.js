@@ -1,6 +1,6 @@
 "use strict";
-const CACHE = "busbra-offline-poc-v13";
-const PREVIOUS_CACHE = "busbra-offline-poc-v12";
+const CACHE = "busbra-offline-poc-v14";
+const PREVIOUS_CACHES = ["busbra-offline-poc-v13", "busbra-offline-poc-v12"];
 const STATIC = ["./", "./index.html", "./styles.css", "./app.js", "./preprocess.js", "./inference-worker.js",
   "./manifest.webmanifest", "./icon.svg", "./assets-manifest.json", "./vendor/ort.wasm.min.js",
   "./vendor/ort-wasm-simd-threaded.mjs", "./vendor/ort-wasm-simd-threaded.wasm"];
@@ -13,13 +13,17 @@ self.addEventListener("install", event => {
 self.addEventListener("activate", event => {
   event.waitUntil((async () => {
     const current = await caches.open(CACHE);
-    const previous = await caches.open(PREVIOUS_CACHE);
     for (const path of ["./__offline_ready__", "./models/classification.onnx", "./models/segmentation.onnx"]) {
       const target = new URL(path, self.registration.scope);
-      let response = await previous.match(target);
-      if (!response && target.pathname.startsWith("/workspace/")) {
-        const legacy = new URL("/offline/" + path.slice(2), self.location.origin);
-        response = await previous.match(legacy);
+      let response;
+      for (const cacheName of PREVIOUS_CACHES) {
+        const previous = await caches.open(cacheName);
+        response = await previous.match(target);
+        if (!response && target.pathname.startsWith("/workspace/")) {
+          const legacy = new URL("/offline/" + path.slice(2), self.location.origin);
+          response = await previous.match(legacy);
+        }
+        if (response) break;
       }
       if (response) await current.put(target, response);
     }

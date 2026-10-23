@@ -1,5 +1,5 @@
 "use strict";
-const CACHE = "busbra-offline-poc-v13";
+const CACHE = "busbra-offline-poc-v14";
 const $ = selector => document.querySelector(selector);
 const pending = new Map();
 const integrated = location.pathname.startsWith("/workspace/");
@@ -85,6 +85,7 @@ function controls() {
   $("#choose-image").disabled = busy;
   $("#analyze").disabled = busy || !canAnalyze() || !selection;
   $("#remove-image").disabled = busy;
+  $("#feedback-submit").disabled = busy;
   updateEngineUI();
   networkStatus();
 }
@@ -631,7 +632,15 @@ function paint(result) {
   }
   $("#timing").textContent = `${(result.inferenceMs / 1000).toFixed(2)} s · ${result.serverAnalysis ? "calcul sur le serveur" : "calcul sur cet appareil"}`;
   $("#server-result-links").hidden = !result.serverAnalysis;
-  $("#feedback-form").hidden = Boolean(result.serverAnalysis);
+  $("#feedback-form").hidden = false;
+  $("#feedback-kicker").textContent = result.serverAnalysis
+    ? "Retour médecin · enregistré dans votre compte"
+    : "Retour médecin · enregistré sur cet appareil";
+  $("#feedback-status").textContent = "";
+  document.querySelectorAll('input[name="assessment"]').forEach(input => { input.checked = false; });
+  $("#corrected-class").value = "";
+  $("#correction-wrap").hidden = true;
+  $("#feedback-note").value = "";
   if (result.serverAnalysis) {
     $("#server-detail").href = result.serverAnalysis.history_url;
     $("#server-report").href = result.serverAnalysis.report_url;
@@ -756,7 +765,7 @@ async function analyze() {
 $("#analyze").addEventListener("click", analyze);
 $("#feedback-form").addEventListener("submit", async event => {
   event.preventDefault();
-  if (!selection || !lastResult || lastResult.serverAnalysis) return;
+  if (!selection || !lastResult || busy) return;
   const assessment = document.querySelector('input[name="assessment"]:checked')?.value;
   const correctedClass = $("#corrected-class").value;
   const note = $("#feedback-note").value.trim();
@@ -768,7 +777,23 @@ $("#feedback-form").addEventListener("submit", async event => {
     $("#feedback-status").textContent = "Choisir la classe corrigée pour signaler une erreur.";
     return;
   }
+  busy = true;
+  controls();
   try {
+    if (lastResult.serverAnalysis) {
+      await refreshSession();
+      if (!serverSession || !navigator.onLine) throw new Error("Connexion perdue. Reconnectez-vous avant d’enregistrer le feedback.");
+      const response = await fetch(lastResult.serverAnalysis.feedback_url, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": serverSession.csrf_token },
+        body: JSON.stringify({ assessment, corrected_class: correctedClass, note }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Impossible d’enregistrer le feedback médical.");
+      $("#feedback-status").textContent = data.message;
+      return;
+    }
     const record = await readRecord(selection.hash);
     if (!record) throw new Error("Analyse introuvable dans l'historique local. Relancez l'analyse.");
     record.feedback = {
@@ -782,6 +807,9 @@ $("#feedback-form").addEventListener("submit", async event => {
     await renderHistory();
   } catch (exception) {
     $("#feedback-status").textContent = exception.message;
+  } finally {
+    busy = false;
+    controls();
   }
 });
 document.querySelectorAll('input[name="assessment"]').forEach(input => {

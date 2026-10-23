@@ -117,7 +117,7 @@ def register_routes(app: Flask) -> None:
             result = enforce_segmentation_policy(predictor.analyze(image), image)
             result["meta"]["filename"] = upload.filename
             row = store.save_analysis(g.user, image, result, reference)
-            result["analysis"] = {"id": row["id"], "reference": row["reference"], "history_url": url_for("analysis_detail", ident=row["id"]), "report_url": url_for("report", ident=row["id"]), "original_url": url_for("asset", ident=row["id"], kind="original")}
+            result["analysis"] = {"id": row["id"], "reference": row["reference"], "history_url": url_for("analysis_detail", ident=row["id"]), "report_url": url_for("report", ident=row["id"]), "feedback_url": url_for("analysis_feedback", ident=row["id"]), "original_url": url_for("asset", ident=row["id"], kind="original")}
             return jsonify(result)
         except ValueError as exc:
             return _error(str(exc), 400)
@@ -170,6 +170,22 @@ def register_routes(app: Flask) -> None:
         if not path.is_file():
             abort(404)
         return send_file(path, mimetype="image/png", conditional=True)
+
+    @app.post("/api/analyses/<ident>/feedback")
+    def analysis_feedback(ident):
+        get_analysis(ident)
+        values = request.get_json(silent=True) or {}
+        try:
+            feedback = store.save_feedback(
+                g.user,
+                ident,
+                str(values.get("assessment", "")),
+                str(values.get("corrected_class", "")),
+                str(values.get("note", "")),
+            )
+            return jsonify(ok=True, message="Feedback médical enregistré dans l’historique.", feedback=feedback)
+        except ValueError as exc:
+            return _error(str(exc), 400)
 
     @app.post("/history/<ident>/<action>")
     def update_analysis(ident, action):

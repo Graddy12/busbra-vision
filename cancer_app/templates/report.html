@@ -14,7 +14,7 @@
       <p class="quiet">Classification : EfficientNetB0 (BUSI). {% if row.result.segmentation.performed %}Segmentation : U-Net ResNet34 (BUS-BRA).{% else %}Segmentation non exécutée pour la classe prédite normale.{% endif %} Grad-CAM calculé sur le score avant softmax de la classe prédite ; cette carte d'attention n'est pas un masque de lésion.</p>
     </section>
     <section class="report-conclusion">
-      <p class="eyebrow">{{ row.reference }} · Suite du rapport</p><h2>3. Observation et revue du médecin</h2><p class="note-block">{{ row.note or 'Aucune observation saisie.' }}</p><p>Statut : <strong>{{ 'Validée' if row.status == 'validated' else 'À examiner' }}</strong>.</p>{% if row.reviewed_at %}<p>Revue par {{ row.reviewer }}, le {{ row.reviewed_at|localdate }}.</p>{% else %}<p>Aucune revue humaine enregistrée.</p>{% endif %}
+      <p class="eyebrow">{{ row.reference }} · Suite du rapport</p><h2>3. Observation et revue du médecin</h2>{% if row.feedback %}<p><strong>Appréciation :</strong> prédiction {{ 'incorrecte' if row.feedback.is_incorrect else 'correcte' }}{% if row.feedback.corrected_label %} · classe corrigée : {{ row.feedback.corrected_label }}{% endif %}.</p>{% endif %}<p class="note-block">{{ row.note or 'Aucune observation saisie.' }}</p><p>Statut : <strong>{{ 'Validée' if row.status == 'validated' else 'À examiner' }}</strong>.</p>{% if row.reviewed_at %}<p>Revue par {{ row.reviewer }}, le {{ row.reviewed_at|localdate }}.</p>{% else %}<p>Aucune revue humaine enregistrée.</p>{% endif %}
       <h2>4. Interprétation automatique des résultats</h2>{% for paragraph in interpretation %}<p>{{ paragraph }}</p>{% endfor %}
       <p class="report-end">Fin du rapport · BUSBRA Vision · Usage académique uniquement</p>
     </section>

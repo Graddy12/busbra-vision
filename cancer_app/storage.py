@@ -243,6 +243,7 @@ class JsonStore:
             "id": ident, "reference": reference or f"EX-{datetime.now():%Y%m%d}-{ident[:6].upper()}",
             "owner_id": actor["id"], "owner_name": actor["name"], "owner_specialty": actor["specialty"],
             "created_at": now(), "deleted_at": None, "status": "pending", "note": "",
+            "feedback": None,
             "reviewer": "", "reviewed_at": None, "images": images, "result": clean_result,
         }
         with self.lock():
@@ -251,6 +252,38 @@ class JsonStore:
             self.write("analyses", rows)
             self._audit(actor, "Nouvelle analyse", row["reference"])
         return row
+
+    def save_feedback(self, actor, ident, assessment, corrected_class="", note=""):
+        if assessment not in {"correct", "incorrect"}:
+            raise ValueError("Indiquez si la prédiction est correcte ou incorrecte.")
+        if assessment == "incorrect" and corrected_class not in {"normal", "benign", "malignant"}:
+            raise ValueError("Choisissez la classe corrigée.")
+        if assessment == "correct":
+            corrected_class = ""
+        note = note.strip()
+        if len(note) > 5000:
+            raise ValueError("Le commentaire doit contenir au maximum 5 000 caractères.")
+        labels = {"normal": "Normale", "benign": "Bénigne", "malignant": "Maligne"}
+        with self.lock():
+            rows = self.read("analyses")
+            row = next((item for item in rows if item["id"] == ident), None)
+            if not row or row.get("deleted_at") or (actor["role"] != "admin" and row["owner_id"] != actor["id"]):
+                raise ValueError("Analyse introuvable.")
+            reviewed_at = now()
+            feedback = {
+                "assessment": assessment,
+                "is_incorrect": assessment == "incorrect",
+                "corrected_class": corrected_class,
+                "corrected_label": labels.get(corrected_class, ""),
+                "note": note,
+                "reviewer": actor["name"],
+                "reviewed_at": reviewed_at,
+            }
+            row.update(feedback=feedback, status="validated", note=note,
+                       reviewer=actor["name"], reviewed_at=reviewed_at)
+            self.write("analyses", rows)
+            self._audit(actor, "Feedback médical", row["reference"])
+            return feedback
 
     def update_analysis(self, actor, ident, action, note="", status="pending"):
         with self.lock():
