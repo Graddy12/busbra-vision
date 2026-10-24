@@ -71,6 +71,17 @@ def create_app(test_config: dict | None = None, predictor=None) -> Flask:
         date = datetime.fromisoformat(value).astimezone(timezone(timedelta(hours=1)))
         return date.strftime("%d/%m/%Y à %H:%M")
 
+    @app.template_filter("review_status")
+    def review_status(value):
+        return {
+            "pending": "À examiner",
+            "validated": "Validée",
+            "discordance_review": "Discordance à revoir",
+            "system_confirmed": "Prédiction du système confirmée",
+            "medical_correction_confirmed": "Correction médicale confirmée",
+            "additional_exam_required": "Examen complémentaire requis",
+        }.get(value, value or "—")
+
     if predictor is None:
         predictor = CombinedPredictor(
             classification_model_path=app.config["CLASSIFICATION_MODEL_PATH"],

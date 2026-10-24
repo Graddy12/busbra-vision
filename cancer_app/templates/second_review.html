@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}Seconde lecture {{ row.reference }} — BUSBRA Vision{% endblock %}
+{% block content %}
+<main>
+  <div class="page-heading"><div><a class="text-link" href="{{ url_for('review_queue') }}">← File de seconde lecture</a><p class="eyebrow section-space">Discordance clinique</p><h1 class="page-title">{{ row.reference }}</h1><p class="muted">{{ row.created_at|localdate }} · examen de {{ row.owner_name }}</p></div><span class="tag {{ row.status }}">{{ row.status|review_status }}</span></div>
+  <aside class="discordance-callout"><strong>Preuve conservée</strong><span>La sortie originale du modèle n’est jamais écrasée. Le premier avis et la seconde lecture sont enregistrés séparément.</span></aside>
+  <div class="detail-grid section-space">
+    <section class="panel">
+      <p class="eyebrow">Éléments à comparer</p><h2>Prédiction originale du système</h2>
+      <p class="reading"><strong>{{ row.result.classification.label }}</strong> · score {{ '%.1f'|format(row.result.classification.confidence_percent) }} %.</p>
+      <h2>Premier avis médical</h2>
+      <p class="reading">Correction proposée : <strong>{{ row.feedback.corrected_label }}</strong><br>Motif : <strong>{{ row.feedback.reason_label or 'Non précisé' }}</strong><br>Médecin : {{ row.feedback.reviewer }} · {{ row.feedback.reviewed_at|localdate }}</p>
+      <p class="note-block">{{ row.feedback.note or 'Aucun commentaire complémentaire.' }}</p>
+    </section>
+    <section class="panel">
+      <p class="eyebrow">Décision indépendante</p><h2>Conclusion de seconde lecture</h2>
+      {% if row.second_review %}
+        <p class="reading"><strong>{{ row.second_review.outcome_label }}</strong>{% if row.second_review.final_label %}<br>Classe finale retenue : <strong>{{ row.second_review.final_label }}</strong>{% endif %}</p>
+        <p class="note-block">{{ row.second_review.note }}</p>
+        <p class="quiet">Signée par {{ row.second_review.reviewer }}, le {{ row.second_review.reviewed_at|localdate }}.</p>
+      {% elif can_review %}
+        <form class="stack-form" method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <label>Conclusion<select name="outcome" required><option value="">Choisir…</option><option value="system_confirmed">Prédiction du système confirmée</option><option value="medical_correction_confirmed">Correction médicale confirmée</option><option value="additional_exam_required">Examen complémentaire requis</option></select></label>
+          <label>Justification clinique<textarea name="note" rows="7" minlength="2" maxlength="5000" required placeholder="Éléments ayant conduit à cette conclusion…"></textarea></label>
+          <button class="btn" type="submit">Signer la seconde lecture</button>
+        </form>
+      {% elif is_first_reviewer %}
+        <p class="flash error">Vous avez enregistré le premier avis. La conclusion doit être signée par un autre médecin.</p>
+      {% else %}
+        <p class="flash error">Un compte médecin distinct doit signer cette seconde lecture.</p>
+      {% endif %}
+    </section>
+  </div>
+  <section class="image-grid section-space">{% for kind,label in [('original','Image originale'),('segmentation_overlay','Segmentation'),('gradcam_overlay','Grad-CAM')] %}{% if kind in row.images %}<figure class="panel"><img src="{{ url_for('review_asset', ident=row.id, kind=kind) }}" alt="{{ label }}"><figcaption>{{ label }}</figcaption></figure>{% endif %}{% endfor %}</section>
+</main>
+{% endblock %}

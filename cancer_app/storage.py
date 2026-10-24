@@ -58,6 +58,19 @@ class JsonStore:
                     print("Compte initial admin créé avec le mot de passe fourni par la configuration privée.", flush=True)
                 else:
                     print(f"Compte initial : admin | Mot de passe : {password}", flush=True)
+            analyses = self.read("analyses")
+            analyses_changed = False
+            for row in analyses:
+                if "second_review" not in row:
+                    row["second_review"] = None
+                    analyses_changed = True
+                # Upgrade feedback created before the independent-review workflow.
+                if ((row.get("feedback") or {}).get("is_incorrect")
+                        and not row.get("second_review") and row.get("status") == "validated"):
+                    row["status"] = "discordance_review"
+                    analyses_changed = True
+            if analyses_changed:
+                self.write("analyses", analyses)
             legacy = self.root / "recovery.json"
             if legacy.exists():
                 if not any(u["active"] and u["role"] == "admin" and self._ordinary_account(u) for u in users):
@@ -243,7 +256,7 @@ class JsonStore:
             "id": ident, "reference": reference or f"EX-{datetime.now():%Y%m%d}-{ident[:6].upper()}",
             "owner_id": actor["id"], "owner_name": actor["name"], "owner_specialty": actor["specialty"],
             "created_at": now(), "deleted_at": None, "status": "pending", "note": "",
-            "feedback": None,
+            "feedback": None, "second_review": None,
             "reviewer": "", "reviewed_at": None, "images": images, "result": clean_result,
         }
         with self.lock():
@@ -253,13 +266,23 @@ class JsonStore:
             self._audit(actor, "Nouvelle analyse", row["reference"])
         return row
 
-    def save_feedback(self, actor, ident, assessment, corrected_class="", note=""):
+    def save_feedback(self, actor, ident, assessment, corrected_class="", note="", reason=""):
         if assessment not in {"correct", "incorrect"}:
             raise ValueError("Indiquez si la prédiction est correcte ou incorrecte.")
         if assessment == "incorrect" and corrected_class not in {"normal", "benign", "malignant"}:
             raise ValueError("Choisissez la classe corrigée.")
+        reason_labels = {
+            "image_quality": "Qualité de l’image insuffisante",
+            "wrong_class": "Classe proposée inadaptée",
+            "segmentation": "Segmentation incohérente",
+            "missing_context": "Contexte clinique manquant",
+            "other": "Autre motif",
+        }
+        if assessment == "incorrect" and reason not in reason_labels:
+            raise ValueError("Choisissez le motif du désaccord.")
         if assessment == "correct":
             corrected_class = ""
+            reason = ""
         note = note.strip()
         if len(note) > 5000:
             raise ValueError("Le commentaire doit contenir au maximum 5 000 caractères.")
@@ -275,15 +298,87 @@ class JsonStore:
                 "is_incorrect": assessment == "incorrect",
                 "corrected_class": corrected_class,
                 "corrected_label": labels.get(corrected_class, ""),
+                "reason": reason,
+                "reason_label": reason_labels.get(reason, ""),
                 "note": note,
+                "reviewer_id": actor["id"],
                 "reviewer": actor["name"],
                 "reviewed_at": reviewed_at,
             }
-            row.update(feedback=feedback, status="validated", note=note,
+            row.update(feedback=feedback,
+                       second_review=None,
+                       status="discordance_review" if assessment == "incorrect" else "validated",
+                       note=note,
                        reviewer=actor["name"], reviewed_at=reviewed_at)
             self.write("analyses", rows)
             self._audit(actor, "Feedback médical", row["reference"])
             return feedback
+
+    def list_discordances(self, actor):
+        """Return the shared, authenticated second-reading queue only."""
+        del actor  # Authentication is enforced before this narrow team view is called.
+        with self.lock():
+            rows = self.read("analyses")
+        visible = [present_analysis(row) for row in rows
+                   if not row.get("deleted_at") and (row.get("feedback") or {}).get("is_incorrect")]
+        return sorted(visible, key=lambda row: row["created_at"], reverse=True)
+
+    def reviewable_analysis(self, actor, ident):
+        """Allow team access only to a case explicitly placed in second reading."""
+        del actor
+        with self.lock():
+            row = next((item for item in self.read("analyses") if item["id"] == ident), None)
+        if not row or row.get("deleted_at") or not (row.get("feedback") or {}).get("is_incorrect"):
+            return None
+        return present_analysis(row)
+
+    def save_second_review(self, actor, ident, outcome, note=""):
+        outcomes = {
+            "system_confirmed": "Prédiction du système confirmée",
+            "medical_correction_confirmed": "Correction médicale confirmée",
+            "additional_exam_required": "Examen complémentaire requis",
+        }
+        if actor.get("role") != "doctor":
+            raise PermissionError("La seconde lecture doit être signée par un médecin.")
+        if outcome not in outcomes:
+            raise ValueError("Choisissez une conclusion de seconde lecture.")
+        note = note.strip()
+        if not 2 <= len(note) <= 5000:
+            raise ValueError("Justifiez la seconde lecture (2 à 5 000 caractères).")
+        labels = {"normal": "Normale", "benign": "Bénigne", "malignant": "Maligne"}
+        with self.lock():
+            rows = self.read("analyses")
+            row = next((item for item in rows if item["id"] == ident), None)
+            if not row or row.get("deleted_at") or row.get("status") != "discordance_review":
+                raise ValueError("Cette discordance n’est plus disponible pour une seconde lecture.")
+            feedback = row.get("feedback") or {}
+            first_reviewer_id = feedback.get("reviewer_id")
+            same_reviewer = first_reviewer_id == actor["id"] or (
+                not first_reviewer_id and feedback.get("reviewer") == actor.get("name")
+            )
+            if same_reviewer:
+                raise PermissionError("La seconde lecture doit être effectuée par un autre médecin.")
+            if outcome == "system_confirmed":
+                final_class = row["result"]["classification"]["code"]
+            elif outcome == "medical_correction_confirmed":
+                final_class = feedback.get("corrected_class", "")
+            else:
+                final_class = ""
+            second_review = {
+                "outcome": outcome,
+                "outcome_label": outcomes[outcome],
+                "final_class": final_class,
+                "final_label": labels.get(final_class, ""),
+                "note": note,
+                "reviewer_id": actor["id"],
+                "reviewer": actor["name"],
+                "reviewed_at": now(),
+            }
+            row.update(second_review=second_review, status=outcome,
+                       reviewer=actor["name"], reviewed_at=second_review["reviewed_at"])
+            self.write("analyses", rows)
+            self._audit(actor, "Conclusion de seconde lecture", row["reference"])
+            return second_review
 
     def update_analysis(self, actor, ident, action, note="", status="pending"):
         with self.lock():

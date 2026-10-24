@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Secondes lectures — BUSBRA Vision{% endblock %}
+{% block content %}
+<main>
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">Validation clinique indépendante</p>
+      <h1 class="page-title">File de seconde lecture</h1>
+      <p class="muted">Les discordances sont examinées par un autre médecin. La prédiction originale du modèle reste inchangée.</p>
+    </div>
+    <a class="btn secondary" href="{{ url_for('history') }}">Historique</a>
+  </div>
+  <aside class="discordance-callout"><strong>Règle de sécurité</strong><span>Le médecin ayant formulé le premier avis ne peut pas conclure sa propre discordance.</span></aside>
+  <section class="panel section-space">
+    <div class="table-wrap"><table>
+      <thead><tr><th>Référence / date</th><th>Prédiction IA</th><th>Premier avis</th><th>Motif</th><th>État</th><th>Action</th></tr></thead>
+      <tbody>{% for row in rows %}<tr>
+        <td><strong>{{ row.reference }}</strong><small>{{ row.created_at|localdate }} · {{ row.owner_name }}</small></td>
+        <td><span class="tag {{ row.result.classification.code }}">{{ row.result.classification.label }}</span><small>{{ '%.1f'|format(row.result.classification.confidence_percent) }} %</small></td>
+        <td><strong>{{ row.feedback.corrected_label }}</strong><small>{{ row.feedback.reviewer }} · {{ row.feedback.reviewed_at|localdate }}</small></td>
+        <td>{{ row.feedback.reason_label or 'Non précisé' }}</td>
+        <td><span class="tag {{ row.status }}">{{ row.status|review_status }}</span></td>
+        <td><a class="btn small secondary" href="{{ url_for('second_review', ident=row.id) }}">{{ 'Consulter' if row.second_review else 'Examiner' }}</a></td>
+      </tr>{% else %}<tr><td colspan="6" class="empty-table">Aucune discordance à examiner.</td></tr>{% endfor %}</tbody>
+    </table></div>
+  </section>
+</main>
+{% endblock %}

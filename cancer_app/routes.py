@@ -91,6 +91,7 @@ def register_routes(app: Flask) -> None:
             user={"name": g.user["name"], "role": g.user["role"]},
             csrf_token=session["csrf_token"], analyze_url=url_for("analyze"),
             history_url=url_for("history"), dashboard_url=url_for("dashboard"),
+            reviews_url=url_for("review_queue"),
             admin_url=url_for("admin") if g.user["role"] == "admin" else None,
             logout_url=url_for("logout"),
         )
@@ -117,7 +118,7 @@ def register_routes(app: Flask) -> None:
             result = enforce_segmentation_policy(predictor.analyze(image), image)
             result["meta"]["filename"] = upload.filename
             row = store.save_analysis(g.user, image, result, reference)
-            result["analysis"] = {"id": row["id"], "reference": row["reference"], "history_url": url_for("analysis_detail", ident=row["id"]), "report_url": url_for("report", ident=row["id"]), "feedback_url": url_for("analysis_feedback", ident=row["id"]), "original_url": url_for("asset", ident=row["id"], kind="original")}
+            result["analysis"] = {"id": row["id"], "reference": row["reference"], "history_url": url_for("analysis_detail", ident=row["id"]), "report_url": url_for("report", ident=row["id"]), "feedback_url": url_for("analysis_feedback", ident=row["id"]), "review_url": url_for("second_review", ident=row["id"]), "original_url": url_for("asset", ident=row["id"], kind="original")}
             return jsonify(result)
         except ValueError as exc:
             return _error(str(exc), 400)
@@ -138,7 +139,11 @@ def register_routes(app: Flask) -> None:
     def dashboard():
         rows = store.list_analyses(g.user)
         counts = {key: sum(r["result"]["classification"]["code"] == key for r in rows) for key in ("normal", "benign", "malignant")}
-        return render_template("dashboard.html", rows=rows[:6], total=len(rows), pending=sum(r["status"] == "pending" for r in rows), counts=counts)
+        return render_template(
+            "dashboard.html", rows=rows[:6], total=len(rows),
+            pending=sum(r["status"] == "pending" for r in rows),
+            discordances=sum(r["status"] == "discordance_review" for r in rows), counts=counts,
+        )
 
     @app.get("/history")
     def history():
@@ -182,10 +187,58 @@ def register_routes(app: Flask) -> None:
                 str(values.get("assessment", "")),
                 str(values.get("corrected_class", "")),
                 str(values.get("note", "")),
+                str(values.get("reason", "")),
             )
-            return jsonify(ok=True, message="Feedback médical enregistré dans l’historique.", feedback=feedback)
+            if feedback["is_incorrect"]:
+                message = "Discordance enregistrée · une seconde lecture par un autre médecin est requise."
+            else:
+                message = "Feedback médical enregistré dans l’historique."
+            return jsonify(ok=True, message=message, feedback=feedback,
+                           review_url=url_for("second_review", ident=ident))
         except ValueError as exc:
             return _error(str(exc), 400)
+
+    @app.get("/reviews")
+    def review_queue():
+        return render_template("reviews.html", rows=store.list_discordances(g.user))
+
+    @app.route("/reviews/<ident>", methods=["GET", "POST"])
+    def second_review(ident):
+        row = store.reviewable_analysis(g.user, ident)
+        if row is None:
+            abort(404)
+        feedback = row.get("feedback") or {}
+        first_reviewer_id = feedback.get("reviewer_id")
+        is_first_reviewer = first_reviewer_id == g.user["id"] or (
+            not first_reviewer_id and feedback.get("reviewer") == g.user.get("name")
+        )
+        can_review = (g.user["role"] == "doctor" and not is_first_reviewer
+                      and row.get("status") == "discordance_review")
+        if request.method == "POST":
+            if not can_review:
+                abort(403, "La seconde lecture doit être signée par un autre médecin.")
+            try:
+                store.save_second_review(
+                    g.user, ident, request.form.get("outcome", ""), request.form.get("note", "")
+                )
+                flash("Conclusion de seconde lecture enregistrée. La prédiction originale est conservée.", "success")
+                return redirect(url_for("second_review", ident=ident))
+            except PermissionError as exc:
+                abort(403, str(exc))
+            except ValueError as exc:
+                flash(str(exc), "error")
+        return render_template("second_review.html", row=row, can_review=can_review,
+                               is_first_reviewer=is_first_reviewer)
+
+    @app.get("/reviews/<ident>/assets/<kind>")
+    def review_asset(ident, kind):
+        row = store.reviewable_analysis(g.user, ident)
+        if row is None or kind not in row["images"]:
+            abort(404)
+        path = store.assets / ident / row["images"][kind]
+        if not path.is_file():
+            abort(404)
+        return send_file(path, mimetype="image/png", conditional=True)
 
     @app.post("/history/<ident>/<action>")
     def update_analysis(ident, action):

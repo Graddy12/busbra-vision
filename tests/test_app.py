@@ -114,16 +114,57 @@ def test_server_feedback_is_saved_and_visible_in_report(client, app):
     response = client.post(
         payload["analysis"]["feedback_url"],
         headers={"X-CSRF-Token": csrf(client)},
-        json={"assessment": "incorrect", "corrected_class": "malignant", "note": "À revoir en réunion."},
+        json={"assessment": "incorrect", "corrected_class": "malignant", "reason": "wrong_class", "note": "À revoir en réunion."},
     )
     assert response.status_code == 200
     row = app.extensions["store"].analysis(app.extensions["store"].users()[0], ident)
     assert row["feedback"]["is_incorrect"] is True
     assert row["feedback"]["corrected_class"] == "malignant"
-    assert row["status"] == "validated"
+    assert row["status"] == "discordance_review"
+    assert row["result"]["classification"]["code"] == "benign"
     report = client.get(payload["analysis"]["report_url"]).get_data(as_text=True)
-    assert "classe corrigée : Maligne" in report
+    assert "classe corrigée proposée : Maligne" in report
     assert "À revoir en réunion." in report
+
+
+def test_disagreement_requires_independent_second_reading(app):
+    doctor(app, "alice")
+    doctor(app, "bob")
+    alice, bob = app.test_client(), app.test_client()
+    login(alice, "alice", "DoctorPass!2026")
+    login(bob, "bob", "DoctorPass!2026")
+    payload = analyze(alice).get_json()
+    ident = payload["analysis"]["id"]
+    response = alice.post(
+        payload["analysis"]["feedback_url"],
+        headers={"X-CSRF-Token": csrf(alice)},
+        json={"assessment": "incorrect", "corrected_class": "malignant",
+              "reason": "wrong_class", "note": "Contours et échogénicité suspects."},
+    )
+    assert response.status_code == 200
+    assert "seconde lecture" in response.get_json()["message"]
+    assert alice.post(
+        f"/reviews/{ident}",
+        data={"csrf_token": csrf(alice), "outcome": "medical_correction_confirmed", "note": "Auto-validation interdite."},
+    ).status_code == 403
+    queue = bob.get("/reviews").get_data(as_text=True)
+    assert "TEST-001" in queue and "Classe proposée inadaptée" in queue
+    assert bob.get(f"/reviews/{ident}").status_code == 200
+    response = bob.post(
+        f"/reviews/{ident}",
+        data={"csrf_token": csrf(bob), "outcome": "medical_correction_confirmed",
+              "note": "La seconde lecture confirme la correction proposée."},
+    )
+    assert response.status_code == 302
+    alice_user = app.extensions["store"].login_user("alice")
+    row = app.extensions["store"].analysis(alice_user, ident)
+    assert row["status"] == "medical_correction_confirmed"
+    assert row["second_review"]["final_class"] == "malignant"
+    assert row["result"]["classification"]["code"] == "benign"
+    report = alice.get(f"/history/{ident}/report").get_data(as_text=True)
+    assert "Prédiction du système confirmée" not in report
+    assert "Correction médicale confirmée" in report
+    assert "classe finale retenue : <strong>Maligne</strong>" in report
 
 
 def test_missing_upload_is_rejected(client):

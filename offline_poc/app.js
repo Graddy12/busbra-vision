@@ -1,5 +1,5 @@
 "use strict";
-const CACHE = "busbra-offline-poc-v14";
+const CACHE = "busbra-offline-poc-v15";
 const $ = selector => document.querySelector(selector);
 const pending = new Map();
 const integrated = location.pathname.startsWith("/workspace/");
@@ -29,9 +29,11 @@ function updateEngineUI() {
   $("#server-user").textContent = serverSession?.user.name || "";
   $("#server-logout").hidden = !serverSession || !navigator.onLine;
   $("#server-history").hidden = !serverSession || !navigator.onLine;
+  $("#server-reviews").hidden = !serverSession || !navigator.onLine;
   $("#server-admin").hidden = !serverSession?.admin_url || !navigator.onLine;
   if (serverSession) {
     $("#server-history").href = serverSession.history_url;
+    $("#server-reviews").href = serverSession.reviews_url;
     if (serverSession.admin_url) $("#server-admin").href = serverSession.admin_url;
   }
 }
@@ -640,6 +642,8 @@ function paint(result) {
   document.querySelectorAll('input[name="assessment"]').forEach(input => { input.checked = false; });
   $("#corrected-class").value = "";
   $("#correction-wrap").hidden = true;
+  $("#disagreement-reason").value = "";
+  $("#disagreement-reason-wrap").hidden = true;
   $("#feedback-note").value = "";
   if (result.serverAnalysis) {
     $("#server-detail").href = result.serverAnalysis.history_url;
@@ -768,6 +772,7 @@ $("#feedback-form").addEventListener("submit", async event => {
   if (!selection || !lastResult || busy) return;
   const assessment = document.querySelector('input[name="assessment"]:checked')?.value;
   const correctedClass = $("#corrected-class").value;
+  const reason = $("#disagreement-reason").value;
   const note = $("#feedback-note").value.trim();
   if (!assessment) {
     $("#feedback-status").textContent = "Indiquer si la prédiction est correcte ou incorrecte.";
@@ -775,6 +780,10 @@ $("#feedback-form").addEventListener("submit", async event => {
   }
   if (assessment === "incorrect" && !correctedClass) {
     $("#feedback-status").textContent = "Choisir la classe corrigée pour signaler une erreur.";
+    return;
+  }
+  if (assessment === "incorrect" && !reason) {
+    $("#feedback-status").textContent = "Choisir le motif du désaccord.";
     return;
   }
   busy = true;
@@ -787,7 +796,7 @@ $("#feedback-form").addEventListener("submit", async event => {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json", "X-CSRF-Token": serverSession.csrf_token },
-        body: JSON.stringify({ assessment, corrected_class: correctedClass, note }),
+        body: JSON.stringify({ assessment, corrected_class: correctedClass, reason, note }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Impossible d’enregistrer le feedback médical.");
@@ -799,11 +808,14 @@ $("#feedback-form").addEventListener("submit", async event => {
     record.feedback = {
       isIncorrect: assessment === "incorrect",
       correctedClass: assessment === "incorrect" ? correctedClass : "",
+      reason: assessment === "incorrect" ? reason : "",
       note,
       reviewedAt: new Date().toISOString(),
     };
     await saveRecord(record);
-    $("#feedback-status").textContent = "Retour enregistré uniquement sur cet appareil. Il n'est pas transmis à l'application web.";
+    $("#feedback-status").textContent = assessment === "incorrect"
+      ? "Discordance conservée sur cet appareil. Une connexion au serveur est nécessaire pour organiser la seconde lecture."
+      : "Retour enregistré uniquement sur cet appareil. Il n'est pas transmis à l'application web.";
     await renderHistory();
   } catch (exception) {
     $("#feedback-status").textContent = exception.message;
@@ -817,7 +829,12 @@ document.querySelectorAll('input[name="assessment"]').forEach(input => {
     const incorrect = input.value === "incorrect" && input.checked;
     $("#correction-wrap").hidden = !incorrect;
     $("#corrected-class").required = incorrect;
-    if (!incorrect) $("#corrected-class").value = "";
+    $("#disagreement-reason-wrap").hidden = !incorrect;
+    $("#disagreement-reason").required = incorrect;
+    if (!incorrect) {
+      $("#corrected-class").value = "";
+      $("#disagreement-reason").value = "";
+    }
   });
 });
 

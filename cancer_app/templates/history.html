@@ -6,7 +6,7 @@
     {% if trash %}<input type="hidden" name="trash" value="1">{% endif %}
     <label>Rechercher<input type="search" name="q" value="{{ request.args.get('q', '') }}" placeholder="Référence, fichier ou médecin"></label>
     <label>Classe<select name="category"><option value="">Toutes</option>{% for code,label in [('normal','Normale'),('benign','Bénigne'),('malignant','Maligne')] %}<option value="{{ code }}" {{ 'selected' if request.args.get('category') == code }}>{{ label }}</option>{% endfor %}</select></label>
-    <label>Revue<select name="status"><option value="">Toutes</option><option value="pending" {{ 'selected' if request.args.get('status') == 'pending' }}>À examiner</option><option value="validated" {{ 'selected' if request.args.get('status') == 'validated' }}>Validée</option></select></label>
+    <label>Revue<select name="status"><option value="">Toutes</option>{% for code,label in [('pending','À examiner'),('validated','Validée'),('discordance_review','Discordance à revoir'),('system_confirmed','Prédiction du système confirmée'),('medical_correction_confirmed','Correction médicale confirmée'),('additional_exam_required','Examen complémentaire requis')] %}<option value="{{ code }}" {{ 'selected' if request.args.get('status') == code }}>{{ label }}</option>{% endfor %}</select></label>
     <label>Date<input type="date" name="date" value="{{ request.args.get('date', '') }}"></label><button class="btn secondary">Filtrer</button><a class="text-link" href="{{ url_for('history', trash=1) if trash else url_for('history') }}">Réinitialiser</a>
   </form><p class="quiet">{{ rows|length }} résultat(s)</p>{% include '_analysis_table.html' %}</section>
 </main>{% endblock %}

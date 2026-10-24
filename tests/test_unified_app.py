@@ -25,6 +25,7 @@ def test_server_context_requires_login_and_is_never_cached(app, client):
     assert context["csrf_token"] == csrf(client)
     assert context["analyze_url"] == "/api/analyze"
     assert context["history_url"] == "/history"
+    assert context["reviews_url"] == "/reviews"
     assert context["admin_url"] == "/admin"
     assert set(context["user"]) == {"name", "role"}
     assert response.headers["Cache-Control"] == "no-store"

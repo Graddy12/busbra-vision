@@ -16,6 +16,7 @@
       <button class="nav-link" type="button" data-page="dashboard">Activité locale</button>
       <button class="nav-link" type="button" data-page="history">Historique local <span id="history-count" class="nav-count">0</span></button>
       <a id="server-history" class="nav-link" hidden>Historique du compte</a>
+      <a id="server-reviews" class="nav-link" hidden>Secondes lectures</a>
       <a id="server-admin" class="nav-link" hidden>Administration</a>
     </nav>
     <div class="topbar-actions"><span id="network" class="prototype-badge"><span></span> Connexion…</span><a id="server-login" class="btn small secondary" href="../login?next=/workspace/" hidden>Connexion</a><span id="server-user" class="quiet" hidden></span><button id="server-logout" class="btn small secondary" type="button" hidden>Déconnexion</button><button id="install-app" class="btn small secondary" type="button" hidden>Installer</button></div>
@@ -101,6 +102,16 @@
                   <option value="normal">Normale</option>
                   <option value="benign">Bénigne</option>
                   <option value="malignant">Maligne</option>
+                </select>
+              </label>
+              <label id="disagreement-reason-wrap" hidden>Motif du désaccord
+                <select id="disagreement-reason">
+                  <option value="">Choisir un motif…</option>
+                  <option value="image_quality">Qualité de l’image insuffisante</option>
+                  <option value="wrong_class">Classe proposée inadaptée</option>
+                  <option value="segmentation">Segmentation incohérente</option>
+                  <option value="missing_context">Contexte clinique manquant</option>
+                  <option value="other">Autre motif</option>
                 </select>
               </label>
               <label>Commentaire (facultatif)<textarea id="feedback-note" rows="3" maxlength="2000" placeholder="Votre observation…"></textarea></label>

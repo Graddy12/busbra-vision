@@ -64,10 +64,12 @@ def test_offline_interface_matches_online_analysis_workflow_and_keeps_history_lo
     assert "Analyser" in html and "Résultats combinés" in html
     assert "Échographie source" in html and "Historique local" in html
     assert "La prédiction est-elle incorrecte ?" in html
+    assert "Motif du désaccord" in html
     assert 'createObjectStore("analyses"' in script
     assert 'crypto.subtle.digest("SHA-256"' in script
     assert "isIncorrect: assessment === \"incorrect\"" in script
     assert "correctedClass: assessment === \"incorrect\" ? correctedClass : \"\"" in script
+    assert "reason: assessment === \"incorrect\" ? reason : \"\"" in script
     assert "imageBlob: selection.imageBlob" in script
     assert "mask: result.mask ? new Uint8Array(result.mask) : null" in script
     assert 'reportButton.dataset.recordAction = "report"' in script
