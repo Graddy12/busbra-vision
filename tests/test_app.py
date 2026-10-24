@@ -147,6 +147,13 @@ def test_disagreement_requires_independent_second_reading(app):
         f"/reviews/{ident}",
         data={"csrf_token": csrf(alice), "outcome": "medical_correction_confirmed", "note": "Auto-validation interdite."},
     ).status_code == 403
+    bypass = alice.post(
+        f"/history/{ident}/review",
+        data={"csrf_token": csrf(alice), "status": "validated", "note": "Contournement"},
+        follow_redirects=True,
+    )
+    assert "doit être conclue dans le circuit de seconde lecture" in bypass.get_data(as_text=True)
+    assert app.extensions["store"].analysis(app.extensions["store"].login_user("alice"), ident)["status"] == "discordance_review"
     queue = bob.get("/reviews").get_data(as_text=True)
     assert "TEST-001" in queue and "Classe proposée inadaptée" in queue
     assert bob.get(f"/reviews/{ident}").status_code == 200

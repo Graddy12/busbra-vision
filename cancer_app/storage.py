@@ -393,6 +393,8 @@ class JsonStore:
                 row["deleted_at"] = None
                 label = "Restauration analyse"
             elif action == "review" and not row["deleted_at"]:
+                if (row.get("feedback") or {}).get("is_incorrect"):
+                    raise ValueError("Cette discordance doit être conclue dans le circuit de seconde lecture.")
                 if status not in {"pending", "validated"} or len(note) > 5000:
                     raise ValueError("Statut ou observation invalide (5 000 caractères maximum).")
                 row.update(status=status, note=note.strip(), reviewer=actor["name"], reviewed_at=now())
