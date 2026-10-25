@@ -6,7 +6,7 @@
   <meta name="csrf-token" content="{{ csrf_token }}">
   <title>{% block title %}BUSBRA Vision{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css', v=3) }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='portal.css', v=5) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='portal.css', v=6) }}">
   {% block head %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
@@ -22,14 +22,14 @@
       {% if current_user.role == 'admin' %}<a href="{{ url_for('admin') }}" {% if request.endpoint in ['admin', 'edit_user'] %}aria-current="page"{% endif %}>Administration</a>{% endif %}
     </nav>
     <a class="btn small secondary pwa-launch" href="{{ url_for('offline_asset') }}">Analyse web / hors ligne</a>
-    <div class="account-menu"><span><strong>{{ current_user.name }}</strong><small>{{ current_user.specialty or ('Administrateur' if current_user.role == 'admin' else 'Médecin') }}</small></span><form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn small secondary" type="submit">Déconnexion</button></form></div>
+    <div class="account-menu"><span><strong>{{ current_user.name }}</strong><small>{{ current_user.specialty or ('Administrateur' if current_user.role == 'admin' else 'Médecin') }}</small></span><form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn small secondary" type="submit" data-loading-text="Déconnexion…">Déconnexion</button></form></div>
     {% else %}<div class="prototype-badge"><span></span> Prototype académique</div>{% endif %}
   </header>
   {% endblock %}
-  <div class="flash-wrap no-print" role="status">{% for category, message in get_flashed_messages(with_categories=true) %}<p class="flash {{ category }}">{{ message }}</p>{% endfor %}</div>
+  <div class="flash-wrap no-print" role="status" aria-live="polite" aria-atomic="true">{% for category, message in get_flashed_messages(with_categories=true) %}<div class="flash {{ category }}" data-toast><span class="flash-icon" aria-hidden="true">{{ '!' if category == 'error' else '✓' }}</span><span class="flash-message">{{ message }}</span><button class="flash-close" type="button" aria-label="Fermer la notification">×</button></div>{% endfor %}</div>
   {% block content %}{% endblock %}
   {% block footer %}<footer class="no-print">BUSBRA Vision · Démonstration académique · Classification, segmentation et explicabilité</footer>{% endblock %}
-  <script src="{{ url_for('static', filename='portal.js', v=3) }}" defer></script>
+  <script src="{{ url_for('static', filename='portal.js', v=4) }}" defer></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

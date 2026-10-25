@@ -22,8 +22,11 @@ body { font-family: 'Segoe UI', 'DM Sans', sans-serif; }
 .main-nav a:hover, .main-nav a[aria-current] { color: var(--teal); background: var(--mint); }
 .account-menu { display: flex; gap: 14px; align-items: center; font-size: .76rem; }
 .account-menu small { display: block; color: var(--muted); padding-top: 3px; }
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 12px; padding: 12px 18px; border: 1px solid var(--teal); border-radius: 9px; background: var(--teal); color: white; text-decoration: none; font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
-.btn:hover { filter: brightness(.94); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 12px; padding: 12px 18px; border: 1px solid var(--teal); border-radius: 9px; background: var(--teal); color: white; text-decoration: none; font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer; white-space: nowrap; transition: transform 160ms ease, filter 160ms ease, opacity 160ms ease; }
+.btn:hover { filter: brightness(.94); transform: translateY(-1px); }
+.btn:active { transform: translateY(1px) scale(.985); }
+.btn.is-loading { cursor: wait; opacity: .78; }
+.btn.is-loading::before { content: ""; width: 14px; height: 14px; flex: 0 0 auto; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: button-spin .7s linear infinite; }
 .btn.secondary { background: white; color: var(--teal); border-color: var(--line); }
 .btn.small { font-size: .74rem; padding: 7px 10px; }
 .btn.danger { color: #9a382d; background: #fff1ed; border-color: #f0c7bc; }
@@ -44,9 +47,21 @@ input, select, textarea { display: block; width: 100%; padding: 12px; border: 1p
 input:focus, select:focus, textarea:focus { outline: 2px solid #6eb8a6; outline-offset: 1px; }
 input[type=hidden] { display: none; }
 textarea { resize: vertical; }
-.flash-wrap { max-width: 1224px; margin: auto; }
-.flash { border-radius: 10px; padding: 14px 18px; font-size: .85rem; border: 1px solid #b9dcca; background: #e7f5ee; color: #23573f; }
-.flash.error { background: #fff0ec; border-color: #edc7bf; color: #87382c; }
+.flash-wrap { position: fixed; z-index: 1000; top: 18px; right: 18px; display: grid; width: min(410px, calc(100vw - 28px)); gap: 10px; pointer-events: none; }
+.flash { position: relative; display: grid; grid-template-columns: 34px minmax(0, 1fr) 28px; align-items: center; gap: 12px; overflow: hidden; margin: 0; padding: 14px 12px 14px 14px; border: 1px solid #b9dcca; border-radius: 13px; background: #f3fbf7; color: #23573f; box-shadow: 0 16px 45px rgba(17, 43, 45, .18); font-size: .85rem; line-height: 1.45; opacity: 0; pointer-events: auto; transform: translateY(-14px) scale(.97); transition: opacity 220ms ease, transform 260ms cubic-bezier(.2,.8,.2,1); }
+.flash::after { content: ""; position: absolute; right: 0; bottom: 0; left: 0; height: 3px; background: #2a9c70; transform-origin: left; animation: toast-progress 5.6s linear forwards; }
+.flash.is-visible { opacity: 1; transform: translateY(0) scale(1); }
+.flash.is-leaving { opacity: 0; transform: translateX(22px) scale(.98); }
+.flash.error { background: #fff5f2; border-color: #edc7bf; color: #87382c; }
+.flash.error::after { background: #c95b4d; animation-duration: 8s; }
+.flash-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #d7f0e2; color: #1e7755; font-weight: 800; animation: confirmation-pop 420ms cubic-bezier(.2,.9,.3,1.4); }
+.flash.error .flash-icon { background: #ffe0d9; color: #9a382d; }
+.flash-message { min-width: 0; font-weight: 600; }
+.flash-close { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: currentColor; cursor: pointer; font-size: 1.2rem; opacity: .58; }
+.flash-close:hover { background: rgba(0,0,0,.06); opacity: 1; }
+@keyframes confirmation-pop { 0% { transform: scale(.3); opacity: 0; } 70% { transform: scale(1.16); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes toast-progress { to { transform: scaleX(0); } }
+@keyframes button-spin { to { transform: rotate(360deg); } }
 .login-layout { display: grid; grid-template-columns: 1.3fr 1fr; align-items: center; gap: 90px; min-height: 75vh; }
 .login-story h1 { font-family: Georgia, serif; font-size: clamp(3.5rem, 6vw, 5.8rem); line-height: 1.05; }
 .login-story > p:not(.eyebrow) { max-width: 480px; line-height: 1.75; color: var(--muted); }

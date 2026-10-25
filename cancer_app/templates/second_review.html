@@ -23,7 +23,7 @@
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <label>Conclusion<select name="outcome" required><option value="">Choisir…</option><option value="system_confirmed">Prédiction du système confirmée</option><option value="medical_correction_confirmed">Correction médicale confirmée</option><option value="additional_exam_required">Examen complémentaire requis</option></select></label>
           <label>Justification clinique<textarea name="note" rows="7" minlength="2" maxlength="5000" required placeholder="Éléments ayant conduit à cette conclusion…"></textarea></label>
-          <button class="btn" type="submit">Signer la seconde lecture</button>
+          <button class="btn" type="submit" data-loading-text="Enregistrement…">Signer la seconde lecture</button>
         </form>
       {% elif is_first_reviewer %}
         <p class="flash error">Vous avez enregistré le premier avis. La conclusion doit être signée par un autre médecin.</p>

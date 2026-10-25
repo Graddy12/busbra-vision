@@ -1,5 +1,5 @@
 "use strict";
-const CACHE = "busbra-offline-poc-v15";
+const CACHE = "busbra-offline-poc-v16";
 const $ = selector => document.querySelector(selector);
 const pending = new Map();
 const integrated = location.pathname.startsWith("/workspace/");
@@ -79,7 +79,39 @@ $("#install-app").addEventListener("click", async () => {
 networkStatus();
 
 function status(message) { $("#status").textContent = message; }
-function error(message) { $("#error").textContent = message; $("#error").hidden = !message; }
+function showToast(message, type = "success") {
+  if (!message) return;
+  const region = $("#toast-region");
+  const toast = document.createElement("div");
+  toast.className = `app-toast ${type}`;
+  const icon = document.createElement("span");
+  icon.className = "toast-icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = type === "error" ? "!" : "✓";
+  const text = document.createElement("span");
+  text.className = "toast-message";
+  text.textContent = message;
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "toast-close";
+  close.setAttribute("aria-label", "Fermer la notification");
+  close.textContent = "×";
+  const dismiss = () => {
+    if (toast.classList.contains("leaving")) return;
+    toast.classList.add("leaving");
+    setTimeout(() => toast.remove(), 240);
+  };
+  close.addEventListener("click", dismiss);
+  toast.append(icon, text, close);
+  region.append(toast);
+  requestAnimationFrame(() => toast.classList.add("visible"));
+  setTimeout(dismiss, type === "error" ? 8000 : 5600);
+}
+function error(message) {
+  $("#error").textContent = message;
+  $("#error").hidden = !message;
+  if (message) showToast(message, "error");
+}
 function controls() {
   $("#prepare").disabled = busy || preparing;
   $("#prepare").textContent = preparing ? "Préparation en arrière-plan…" : "Activer le mode hors ligne (115 Mo)";
@@ -88,6 +120,8 @@ function controls() {
   $("#analyze").disabled = busy || !canAnalyze() || !selection;
   $("#remove-image").disabled = busy;
   $("#feedback-submit").disabled = busy;
+  $("#feedback-submit").classList.toggle("is-loading", busy && !$("#feedback-form").hidden);
+  $("#feedback-submit").textContent = busy && !$("#feedback-form").hidden ? "Enregistrement…" : "Enregistrer le retour";
   updateEngineUI();
   networkStatus();
 }
@@ -471,6 +505,7 @@ async function prepare() {
     if (navigator.storage?.persist) await navigator.storage.persist();
     await startEngine();
     status(engineMode() === "server" ? "Prêt · serveur actif et mode hors ligne disponible" : "Prêt · analyse locale activée");
+    showToast("Mode hors ligne préparé avec succès sur cet appareil.");
   } catch (exception) {
     ready = false;
     status("Préparation incomplète · rétablir la connexion et réessayer");
@@ -725,6 +760,7 @@ async function analyze() {
       lastResult = result;
       paint(result);
       status("Analyse serveur terminée · examen enregistré dans l'historique du compte");
+      showToast("Analyse terminée et enregistrée dans votre compte.");
       return;
     }
     const { rgb, width, height } = selection;
@@ -757,6 +793,7 @@ async function analyze() {
       feedback: existing?.feedback || null,
     });
     await renderHistory();
+    showToast("Analyse terminée et enregistrée dans l’historique local.");
   } catch (exception) {
     error(exception.message || "L'analyse ou l'enregistrement local a échoué.");
     status("Analyse interrompue · aucun résultat complet disponible");
@@ -776,14 +813,17 @@ $("#feedback-form").addEventListener("submit", async event => {
   const note = $("#feedback-note").value.trim();
   if (!assessment) {
     $("#feedback-status").textContent = "Indiquer si la prédiction est correcte ou incorrecte.";
+    showToast("Indiquez si la prédiction est correcte ou incorrecte.", "error");
     return;
   }
   if (assessment === "incorrect" && !correctedClass) {
     $("#feedback-status").textContent = "Choisir la classe corrigée pour signaler une erreur.";
+    showToast("Choisissez la classe corrigée.", "error");
     return;
   }
   if (assessment === "incorrect" && !reason) {
     $("#feedback-status").textContent = "Choisir le motif du désaccord.";
+    showToast("Choisissez le motif du désaccord.", "error");
     return;
   }
   busy = true;
@@ -801,6 +841,7 @@ $("#feedback-form").addEventListener("submit", async event => {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Impossible d’enregistrer le feedback médical.");
       $("#feedback-status").textContent = data.message;
+      showToast(data.message);
       return;
     }
     const record = await readRecord(selection.hash);
@@ -816,9 +857,13 @@ $("#feedback-form").addEventListener("submit", async event => {
     $("#feedback-status").textContent = assessment === "incorrect"
       ? "Discordance conservée sur cet appareil. Une connexion au serveur est nécessaire pour organiser la seconde lecture."
       : "Retour enregistré uniquement sur cet appareil. Il n'est pas transmis à l'application web.";
+    showToast(assessment === "incorrect"
+      ? "Discordance enregistrée localement."
+      : "Retour médical enregistré sur cet appareil.");
     await renderHistory();
   } catch (exception) {
     $("#feedback-status").textContent = exception.message;
+    showToast(exception.message, "error");
   } finally {
     busy = false;
     controls();

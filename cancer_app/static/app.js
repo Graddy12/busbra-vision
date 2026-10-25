@@ -58,6 +58,7 @@ function showError(message) {
   results.hidden = true;
   errorState.hidden = false;
   document.querySelector("#error-message").textContent = message;
+  window.busbraNotify?.(message, "error");
 }
 
 function displayResults(data) {
@@ -110,6 +111,7 @@ function displayResults(data) {
   loadingState.hidden = true;
   emptyState.hidden = true;
   results.hidden = false;
+  window.busbraNotify?.("Analyse terminée et enregistrée dans l’historique.");
 }
 
 function setResultView(view) {
@@ -158,6 +160,8 @@ form.addEventListener("submit", async (event) => {
   results.hidden = true;
   loadingState.hidden = false;
   analyzeButton.disabled = true;
+  analyzeButton.classList.add("is-loading");
+  analyzeButton.setAttribute("aria-busy", "true");
   removeButton.disabled = true;
 
   const body = new FormData();
@@ -186,6 +190,8 @@ form.addEventListener("submit", async (event) => {
   } finally {
     isAnalyzing = false;
     analyzeButton.disabled = !selectedFile;
+    analyzeButton.classList.remove("is-loading");
+    analyzeButton.removeAttribute("aria-busy");
     removeButton.disabled = false;
   }
 });

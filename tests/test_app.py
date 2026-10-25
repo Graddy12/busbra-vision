@@ -238,8 +238,9 @@ def test_doctors_cannot_access_other_history_or_assets(app):
 def test_soft_delete_restore_review_and_report(client):
     payload = analyze(client).get_json()
     ident = payload["analysis"]["id"]
-    response = client.post(f"/history/{ident}/review", data={"csrf_token": csrf(client), "status": "validated", "note": "Observation test <script>alert(1)</script>"})
-    assert response.status_code == 302
+    response = client.post(f"/history/{ident}/review", data={"csrf_token": csrf(client), "status": "validated", "note": "Observation test <script>alert(1)</script>"}, follow_redirects=True)
+    assert response.status_code == 200
+    assert b'data-toast' in response.data and "Revue enregistrée" in response.get_data(as_text=True)
     report = client.get(f"/history/{ident}/report").get_data(as_text=True)
     assert "&lt;script&gt;" in report and "<script>alert(1)" not in report
     assert "Interprétation automatique" in report and "Observation test" in report

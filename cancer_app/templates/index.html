@@ -24,7 +24,7 @@
             <h2>Échographie source</h2>
           </div>
 
-          <form id="analysis-form" novalidate>
+          <form id="analysis-form" novalidate data-async-form>
             <label class="exam-reference">Référence de l'examen (facultative)<input id="exam-reference" name="reference" maxlength="100" placeholder="Ex. DEMO-001"></label>
             <label id="drop-zone" class="drop-zone" for="image-input">
               <input id="image-input" name="image" type="file" accept="image/png,image/jpeg,image/bmp,image/tiff,image/webp">
@@ -120,4 +120,4 @@
     </main>
 
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='app.js', v=5) }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='app.js', v=6) }}" defer></script>{% endblock %}

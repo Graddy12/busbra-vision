@@ -5,7 +5,7 @@
   <a class="brand" href="{{ url_for('admin') }}"><span class="brand-mark" aria-hidden="true"></span><span>BUSBRA <strong>Vision</strong></span></a>
   <span class="admin-area-label">Espace administration</span>
   <a class="btn small secondary pwa-launch" href="{{ url_for('offline_asset') }}">Ouvrir l'analyse web / hors ligne</a>
-  <div class="account-menu"><span><strong>{{ current_user.name }}</strong><small>Administrateur</small></span><form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn small secondary" type="submit">Déconnexion</button></form></div>
+  <div class="account-menu"><span><strong>{{ current_user.name }}</strong><small>Administrateur</small></span><form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn small secondary" type="submit" data-loading-text="Déconnexion…">Déconnexion</button></form></div>
 </header>
 {% endblock %}
 {% block content %}

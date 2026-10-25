@@ -7,7 +7,7 @@
     <td>{{ '%.1f'|format(row.result.classification.confidence_percent) }} %</td>
     <td><span class="tag {{ row.status }}">{{ row.status|review_status }}</span></td>
     <td><div class="table-actions">{% if trash|default(false) %}
-      <form method="post" action="{{ url_for('update_analysis', ident=row.id, action='restore') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn small secondary">Restaurer</button></form>
+      <form method="post" action="{{ url_for('update_analysis', ident=row.id, action='restore') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn small secondary" data-loading-text="Restauration…">Restaurer</button></form>
     {% else %}<a class="btn small secondary" href="{{ url_for('analysis_detail', ident=row.id) }}">Consulter</a><a class="text-link" href="{{ url_for('report', ident=row.id) }}">Rapport</a>{% endif %}</div></td>
   </tr>{% else %}<tr><td colspan="6" class="empty-table">Aucune analyse pour cette sélection.</td></tr>{% endfor %}</tbody>
 </table></div>

@@ -65,6 +65,9 @@ def test_offline_interface_matches_online_analysis_workflow_and_keeps_history_lo
     assert "Échographie source" in html and "Historique local" in html
     assert "La prédiction est-elle incorrecte ?" in html
     assert "Motif du désaccord" in html
+    assert 'id="toast-region"' in html
+    assert "function showToast" in script
+    assert 'showToast(data.message)' in script
     assert 'createObjectStore("analyses"' in script
     assert 'crypto.subtle.digest("SHA-256"' in script
     assert "isIncorrect: assessment === \"incorrect\"" in script

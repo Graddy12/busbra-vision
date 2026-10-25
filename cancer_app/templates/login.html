@@ -4,13 +4,13 @@
 <main class="login-layout">
   <section class="login-story"><p class="eyebrow">Votre espace d'analyse</p><h1>Comprendre.<br>Visualiser.<br><em>Documenter.</em></h1><p>Un espace commun pour analyser les échographies, explorer les zones d'attention et conserver les observations du médecin.</p><div class="login-features"><span>Classification</span><span>Segmentation</span><span>Grad-CAM</span></div><p class="quiet">Prototype académique. L'interprétation du médecin reste distincte des résultats automatiques.</p></section>
   <section class="panel login-card"><p class="eyebrow">Accès sécurisé</p><h2>Bienvenue</h2><p class="muted">Connectez-vous avec le compte remis par votre administrateur.</p>
-    {% if error %}<div class="flash error" role="alert">{{ error }}</div>{% endif %}
+    {% if error %}<div class="flash error" role="alert" data-toast><span class="flash-icon" aria-hidden="true">!</span><span class="flash-message">{{ error }}</span><button class="flash-close" type="button" aria-label="Fermer la notification">×</button></div>{% endif %}
     <form method="post" class="stack-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="next" value="{{ request.form.get('next', request.args.get('next', '/')) }}">
       <label>Identifiant<input name="username" autocomplete="username" required maxlength="80" autofocus value="{{ request.form.get('username', '') }}"></label>
       <label>Mot de passe<input name="password" type="password" autocomplete="current-password" required></label>
-      <button class="btn" type="submit">Se connecter <span aria-hidden="true">→</span></button>
+      <button class="btn" type="submit" data-loading-text="Connexion…">Se connecter <span aria-hidden="true">→</span></button>
     </form>
     <p class="quiet">Mot de passe oublié ? Demandez une réinitialisation à l'administrateur.</p>
   </section>
