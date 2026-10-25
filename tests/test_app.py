@@ -271,6 +271,33 @@ def test_admin_create_edit_disable_and_reset(app, client):
     assert login(other, "oncologue", "NewPassword!2026").status_code == 302
 
 
+def test_admin_can_delete_another_account_but_not_self(app, client):
+    store = app.extensions["store"]
+    user = doctor(app, "a_supprimer")
+    other = app.test_client()
+    login(other, "a_supprimer", "DoctorPass!2026")
+
+    page = client.get(f"/admin/users/{user['id']}/edit")
+    assert page.status_code == 200
+    assert f'/admin/users/{user["id"]}/delete'.encode() in page.data
+    response = client.post(
+        f"/admin/users/{user['id']}/delete",
+        data={"csrf_token": csrf(client)},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert "Compte supprimé" in response.get_data(as_text=True)
+    assert store.user(user["id"]) is None
+    assert other.get("/").status_code == 302
+    assert any(event["action"] == "Suppression utilisateur" and event["subject"] == "a_supprimer"
+               for event in store.events())
+
+    admin = store.users()[0]
+    assert b"Supprimer le compte" not in client.get(f"/admin/users/{admin['id']}/edit").data
+    with pytest.raises(ValueError, match="propre compte"):
+        store.delete_user(admin, admin["id"])
+
+
 def test_last_admin_and_open_redirect(app, client):
     store = app.extensions["store"]
     admin = store.users()[0]

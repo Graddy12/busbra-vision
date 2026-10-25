@@ -1,3 +1,29 @@
 {% extends 'admin_base.html' %}
 {% block title %}Modifier un utilisateur — BUSBRA Vision{% endblock %}
-{% block admin_content %}<main class="narrow-page"><a class="text-link" href="{{ url_for('admin') }}">← Administration</a><section class="panel section-space"><p class="eyebrow">Gestion du compte</p><h1 class="page-title">{{ user.name }}</h1><form method="post" class="stack-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">{% include '_user_fields.html' %}<button class="btn" data-loading-text="Enregistrement…">Enregistrer les modifications</button></form></section></main>{% endblock %}
+{% block admin_content %}
+<main class="narrow-page">
+  <a class="text-link" href="{{ url_for('admin') }}">← Administration</a>
+  <section class="panel section-space">
+    <p class="eyebrow">Gestion du compte</p>
+    <h1 class="page-title">{{ user.name }}</h1>
+    <form method="post" class="stack-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {% include '_user_fields.html' %}
+      <button class="btn" data-loading-text="Enregistrement…">Enregistrer les modifications</button>
+    </form>
+  </section>
+  {% if user.id != current_user.id %}
+  <section class="danger-zone section-space" aria-labelledby="delete-account-title">
+    <div>
+      <p class="eyebrow">Zone sensible</p>
+      <h2 id="delete-account-title">Supprimer ce compte</h2>
+      <p>Le compte ne pourra plus se connecter. Les analyses médicales et le journal des actions seront conservés.</p>
+    </div>
+    <form method="post" action="{{ url_for('delete_user', ident=user.id) }}" data-confirm="Supprimer définitivement le compte {{ user.username }} ? Cette action est irréversible.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="btn danger" type="submit" data-loading-text="Suppression…">Supprimer le compte</button>
+    </form>
+  </section>
+  {% endif %}
+</main>
+{% endblock %}

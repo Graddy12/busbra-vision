@@ -294,6 +294,17 @@ def register_routes(app: Flask) -> None:
             flash(str(exc), "error")
         return redirect(url_for("admin"))
 
+    @app.post("/admin/users/<ident>/delete")
+    @admin_only
+    def delete_user(ident):
+        try:
+            store.delete_user(g.user, ident)
+            flash("Compte supprimé. Ses analyses et les traces d’audit sont conservées.", "success")
+            return redirect(url_for("admin"))
+        except ValueError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("edit_user", ident=ident))
+
     @app.errorhandler(RequestEntityTooLarge)
     def file_too_large(_error_object):
         return _error("Le fichier dépasse la limite de 16 Mo.", 413)

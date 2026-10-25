@@ -221,6 +221,22 @@ class JsonStore:
             self.write("users", users)
             self._audit(actor, "Activation compte" if user["active"] else "Désactivation compte", user["username"])
 
+    def delete_user(self, actor, user_id):
+        with self.lock():
+            users = self.read("users")
+            user = next((u for u in users if u["id"] == user_id), None)
+            if not user or not self._ordinary_account(user):
+                raise ValueError("Utilisateur introuvable.")
+            if user["id"] == actor["id"]:
+                raise ValueError("Vous ne pouvez pas supprimer votre propre compte.")
+            if (user["active"] and user["role"] == "admin"
+                    and sum(u["active"] and u["role"] == "admin" for u in users) <= 1):
+                raise ValueError("Le dernier administrateur actif ne peut pas être supprimé.")
+            users.remove(user)
+            self.write("users", users)
+            self._audit(actor, "Suppression utilisateur", user["username"])
+            return user
+
     def list_analyses(self, actor, deleted=False):
         with self.lock():
             rows = self.read("analyses")
