@@ -68,6 +68,8 @@ def test_offline_interface_matches_online_analysis_workflow_and_keeps_history_lo
     assert 'id="toast-region"' in html
     assert "function showToast" in script
     assert 'showToast(data.message)' in script
+    assert 'if (engineMode() === "local")' in script
+    assert "activateLocalEngineIfNeeded" in script
     assert 'createObjectStore("analyses"' in script
     assert 'crypto.subtle.digest("SHA-256"' in script
     assert "isIncorrect: assessment === \"incorrect\"" in script
@@ -89,5 +91,5 @@ def test_server_analysis_stays_available_during_optional_offline_download():
     assert "Sélectionner une image" in html
     assert "busy = false, preparing = false" in script
     assert '$("#image").disabled = busy;' in script
-    assert '$("#prepare").disabled = busy || preparing;' in script
+    assert '$("#prepare").disabled = busy || preparing || localAssetsReady;' in script
     assert "received / model.bytes" in script

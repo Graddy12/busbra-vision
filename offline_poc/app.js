@@ -1,9 +1,9 @@
 "use strict";
-const CACHE = "busbra-offline-poc-v16";
+const CACHE = "busbra-offline-poc-v17";
 const $ = selector => document.querySelector(selector);
 const pending = new Map();
 const integrated = location.pathname.startsWith("/workspace/");
-let worker, manifest, requestId = 0, busy = false, preparing = false, ready = false, selection = null, lastResult = null;
+let worker, manifest, requestId = 0, busy = false, preparing = false, ready = false, localAssetsReady = false, selection = null, lastResult = null;
 let databasePromise, installPrompt = null;
 let serverSession = null;
 
@@ -52,9 +52,9 @@ function networkStatus() {
   $("#network").classList.toggle("offline", offline);
 }
 addEventListener("online", () => { networkStatus(); refreshSession(); });
-addEventListener("offline", () => { networkStatus(); controls(); });
+addEventListener("offline", () => { networkStatus(); controls(); activateLocalEngineIfNeeded(); });
 addEventListener("focus", () => { if (!busy && navigator.onLine) refreshSession(); });
-$("#engine-mode").addEventListener("change", controls);
+$("#engine-mode").addEventListener("change", () => { controls(); activateLocalEngineIfNeeded(); });
 $("#server-logout").addEventListener("click", async () => {
   if (!serverSession || busy) return;
   try {
@@ -113,8 +113,10 @@ function error(message) {
   if (message) showToast(message, "error");
 }
 function controls() {
-  $("#prepare").disabled = busy || preparing;
-  $("#prepare").textContent = preparing ? "Préparation en arrière-plan…" : "Activer le mode hors ligne (115 Mo)";
+  $("#prepare").disabled = busy || preparing || localAssetsReady;
+  $("#prepare").textContent = preparing
+    ? "Préparation en arrière-plan…"
+    : localAssetsReady ? "Mode hors ligne prêt" : "Activer le mode hors ligne (115 Mo)";
   $("#image").disabled = busy;
   $("#choose-image").disabled = busy;
   $("#analyze").disabled = busy || !canAnalyze() || !selection;
@@ -442,6 +444,26 @@ async function prepared() {
   for (const url of urls) if (!await cache.match(url)) return false;
   return true;
 }
+async function activateLocalEngineIfNeeded() {
+  if (engineMode() !== "local" || ready || preparing || busy || !manifest) return;
+  busy = true;
+  controls();
+  try {
+    localAssetsReady = await prepared();
+    if (!localAssetsReady) {
+      status("Mode local non préparé · activez d’abord le mode hors ligne");
+      return;
+    }
+    await startEngine();
+  } catch (exception) {
+    ready = false;
+    status("Moteur local indisponible · le mode serveur reste utilisable en ligne");
+    error(exception.message);
+  } finally {
+    busy = false;
+    controls();
+  }
+}
 async function prepare() {
   if (preparing) return;
   preparing = true;
@@ -502,9 +524,13 @@ async function prepare() {
       hashes: Object.values(manifest.models).map(model => model.sha256).join(":"),
       date: new Date().toISOString(),
     })));
+    localAssetsReady = true;
     if (navigator.storage?.persist) await navigator.storage.persist();
-    await startEngine();
-    status(engineMode() === "server" ? "Prêt · serveur actif et mode hors ligne disponible" : "Prêt · analyse locale activée");
+    if (engineMode() === "local") {
+      await startEngine();
+    } else {
+      status("Prêt · serveur actif et mode hors ligne préparé à la demande");
+    }
     showToast("Mode hors ligne préparé avec succès sur cet appareil.");
   } catch (exception) {
     ready = false;
@@ -926,8 +952,13 @@ async function initialize() {
       });
     }
     await navigator.serviceWorker.ready;
-    if (await prepared()) {
-      await startEngine();
+    localAssetsReady = await prepared();
+    if (localAssetsReady) {
+      if (engineMode() === "local") {
+        await startEngine();
+      } else {
+        status("Prêt · serveur actif et mode hors ligne préparé à la demande");
+      }
     } else {
       status(serverSession ? "Mode serveur disponible · préparez cet appareil pour analyser aussi hors ligne" : "Appareil non préparé · téléchargez les modèles avant de passer hors ligne");
     }

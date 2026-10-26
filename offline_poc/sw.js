@@ -1,6 +1,6 @@
 "use strict";
-const CACHE = "busbra-offline-poc-v16";
-const PREVIOUS_CACHES = ["busbra-offline-poc-v15", "busbra-offline-poc-v14", "busbra-offline-poc-v13", "busbra-offline-poc-v12"];
+const CACHE = "busbra-offline-poc-v17";
+const PREVIOUS_CACHES = ["busbra-offline-poc-v16", "busbra-offline-poc-v15", "busbra-offline-poc-v14", "busbra-offline-poc-v13", "busbra-offline-poc-v12"];
 const STATIC = ["./", "./index.html", "./styles.css", "./app.js", "./preprocess.js", "./inference-worker.js",
   "./manifest.webmanifest", "./icon.svg", "./assets-manifest.json", "./vendor/ort.wasm.min.js",
   "./vendor/ort-wasm-simd-threaded.mjs", "./vendor/ort-wasm-simd-threaded.wasm"];

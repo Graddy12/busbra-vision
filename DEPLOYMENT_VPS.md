@@ -1,7 +1,6 @@
 # Déploiement VPS — version unifiée, sans compte de secours
 
-Branche à utiliser : **codex/render-offline-poc**. Ne pas déployer l'ancienne
-branche `main` par erreur. L'application conserve les modes Serveur / Local /
+Branche à utiliser : **main**. L'application conserve les modes Serveur / Local /
 Automatique dans `/workspace/` et l'administration séparée dans `/admin`.
 
 ## Récupérer et construire
@@ -29,6 +28,7 @@ Créer sur le VPS un fichier `.env.vps` privé (permissions `600`) contenant :
 BUSBRA_PRODUCTION=1
 BUSBRA_DATA_DIR=/data
 BUSBRA_ADMIN_PASSWORD=REMPLACER_PAR_UN_SECRET_UNIQUE_D_AU_MOINS_16_CARACTERES
+BUSBRA_FAST_INFERENCE=1
 PORT=8080
 ```
 
@@ -47,6 +47,9 @@ docker logs --tail 100 busbra-vision
 Conserver **une seule instance** : le stockage JSON n'est pas prévu pour plusieurs
 répliques. Prévoir suffisamment de RAM pour Keras/PyTorch et Grad-CAM ; mesurer
 la consommation réelle. Le premier démarrage peut prendre plusieurs minutes.
+`BUSBRA_FAST_INFERENCE=1` conserve les mêmes poids, partage la passe de
+classification avec Grad-CAM et désactive uniquement la seconde passe TTA de la
+segmentation. Utiliser `0` pour reproduire le mode d'évaluation complet.
 
 ## Domaine HTTPS et contrôles
 

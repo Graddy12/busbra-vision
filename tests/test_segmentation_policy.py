@@ -17,9 +17,10 @@ def test_segmenter_called_only_for_predicted_lesion_classes(code):
     predictor._loaded = True
     predictor._inference_lock = threading.Lock()
     predictor.device = "cpu"
+    predictor.fast_mode = True
+    predictor.segmentation_config = {"tta": True}
     image = Image.new("RGB", (64, 80))
-    predictor._classify = Mock(return_value={"code": code})
-    predictor._gradcam = Mock(return_value={"available": True})
+    predictor._classify_with_gradcam = Mock(return_value=({"code": code}, {"available": True}))
     predictor._segment = Mock(return_value={"lesion_area_percent": 12.5, "mask_data_url": "mask", "overlay_data_url": "overlay"})
     result = predictor.analyze(image)
     if code == "normal":
@@ -30,7 +31,7 @@ def test_segmenter_called_only_for_predicted_lesion_classes(code):
         assert result["segmentation"]["lesion_area_percent"] is None
         assert result["segmentation"]["lesion_detected"] is None
     else:
-        predictor._segment.assert_called_once_with(image)
+        predictor._segment.assert_called_once_with(image, use_tta=False)
         assert result["segmentation"]["performed"] is True
         assert result["segmentation"]["mask_data_url"] == "mask"
 

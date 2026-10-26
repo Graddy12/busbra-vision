@@ -34,12 +34,14 @@ class CombinedPredictor:
         segmentation_model_path: str,
         segmentation_selection_path: str,
         device: str = "cpu",
+        fast_mode: bool = False,
     ) -> None:
         self.classification_model_path = Path(classification_model_path)
         self.classification_config_path = Path(classification_config_path)
         self.segmentation_model_path = Path(segmentation_model_path)
         self.segmentation_selection_path = Path(segmentation_selection_path)
         self.requested_device = device.lower().strip()
+        self.fast_mode = bool(fast_mode)
 
         self._load_lock = threading.Lock()
         self._inference_lock = threading.Lock()
@@ -59,6 +61,7 @@ class CombinedPredictor:
             "loaded": self._loaded,
             "load_error": self._load_error,
             "device": self.device if self._loaded else self.requested_device,
+            "fast_mode": self.fast_mode,
             "classification_model": self.classification_model_path.name,
             "segmentation_model": self.segmentation_model_path.name,
         }
@@ -74,10 +77,10 @@ class CombinedPredictor:
         # Serializing inference avoids memory spikes when Flask receives concurrent
         # requests. A production deployment can replace this with a job queue.
         with self._inference_lock:
-            classification = self._classify(image)
-            gradcam = self._gradcam(image, classification["code"])
+            classification, gradcam = self._classify_with_gradcam(image)
+            use_tta = bool(self.segmentation_config.get("tta", True)) and not self.fast_mode
             segmentation = (
-                self._segment(image)
+                self._segment(image, use_tta=use_tta)
                 if segmentation_applicable(classification["code"])
                 else skipped_segmentation(image)
             )
@@ -89,6 +92,8 @@ class CombinedPredictor:
             "meta": {
                 "device": self.device,
                 "inference_ms": round((time.perf_counter() - started) * 1000, 1),
+                "fast_mode": self.fast_mode,
+                "segmentation_tta": use_tta if segmentation_applicable(classification["code"]) else False,
                 "disclaimer": (
                     "Prototype académique : ces résultats ne constituent pas "
                     "un diagnostic médical."
@@ -230,7 +235,8 @@ class CombinedPredictor:
         )
         self.torch = torch
 
-    def _classify(self, image: Image.Image) -> dict:
+    def _classify_with_gradcam(self, image: Image.Image) -> tuple[dict, dict]:
+        """Classify and produce Grad-CAM from one shared forward pass."""
         size = int(self.classification_config["taille_image"])
         padded = ImageOps.pad(
             image,
@@ -238,21 +244,25 @@ class CombinedPredictor:
             method=Image.Resampling.BILINEAR,
             color=(0, 0, 0),
         )
-        batch = np.asarray(padded, dtype=np.float32)[None, ...]
-        scores = np.asarray(
-            self.classification_model.predict(batch, verbose=0)[0],
-            dtype=np.float64,
-        )
-
-        # The supplied model ends in softmax. The fallback keeps the API sound if
-        # a future checkpoint exports logits instead.
-        if np.any(scores < 0) or not np.isclose(scores.sum(), 1.0, atol=1e-3):
-            scores = np.exp(scores - np.max(scores))
-            scores = scores / scores.sum()
-
+        tensor = self.torch.from_numpy(
+            np.asarray(padded, dtype=np.float32).copy()[None]
+        ).requires_grad_(True)
         classes = self.classification_config["classes"]
         translations = self.classification_config["fr"]
-        winner = int(np.argmax(scores))
+        with self.torch.enable_grad():
+            features, head = self.classification_cam_model(tensor, training=False)
+            final_layer = self.classification_model.get_layer("classes")
+            logits = head @ final_layer.kernel.value + final_layer.bias.value
+            score_tensor = self.torch.softmax(logits[0], dim=-1)
+            winner = int(score_tensor.argmax().detach().cpu())
+            gradients = self.torch.autograd.grad(logits[0, winner], features)[0]
+            weights = gradients.mean(dim=(1, 2), keepdim=True)
+            activation = self.torch.relu((weights * features).sum(dim=-1))[0]
+            peak = float(activation.max().detach().cpu())
+            normalized = activation / max(peak, 1e-12)
+            heat = normalized.detach().cpu().numpy()
+            scores = score_tensor.detach().cpu().numpy().astype(np.float64)
+
         probabilities = [
             {
                 "code": class_name,
@@ -263,8 +273,7 @@ class CombinedPredictor:
             for index, class_name in enumerate(classes)
         ]
         probabilities.sort(key=lambda item: item["probability"], reverse=True)
-
-        return {
+        classification = {
             "code": classes[winner],
             "label": translations[classes[winner]],
             "confidence": round(float(scores[winner]), 6),
@@ -272,7 +281,38 @@ class CombinedPredictor:
             "probabilities": probabilities,
         }
 
-    def _segment(self, image: Image.Image) -> dict:
+        # Match PIL's exact pad geometry, rather than stretching the padded CAM.
+        contained = ImageOps.contain(image, (size, size), method=Image.Resampling.BILINEAR)
+        geometry = {
+            "height": image.height, "width": image.width,
+            "top": round((size - contained.height) / 2),
+            "left": round((size - contained.width) / 2),
+            "new_height": contained.height, "new_width": contained.width,
+        }
+        heat = cv2.resize(heat, (size, size), interpolation=cv2.INTER_LINEAR)
+        heat = _restore_probability(heat, geometry)
+        colored = cv2.cvtColor(
+            cv2.applyColorMap(np.round(heat * 255).astype(np.uint8), cv2.COLORMAP_TURBO),
+            cv2.COLOR_BGR2RGB,
+        )
+        alpha = heat[..., None] * 0.55
+        original = np.asarray(image, dtype=np.float32)
+        overlay = np.clip(
+            original * (1 - alpha) + colored.astype(np.float32) * alpha,
+            0,
+            255,
+        ).astype(np.uint8)
+        gradcam = {
+            "class_code": classes[winner],
+            "layer": "gradcam_features",
+            "method": "Grad-CAM sur logit",
+            "available": peak > 1e-12,
+            "overlay_data_url": _png_data_url(overlay),
+            "heatmap_data_url": _png_data_url(colored),
+        }
+        return classification, gradcam
+
+    def _segment(self, image: Image.Image, use_tta: bool | None = None) -> dict:
         original = np.asarray(image, dtype=np.uint8)
         size = int(self.segmentation_config["image_size"])
         padded, geometry = _letterbox(original, size)
@@ -284,7 +324,9 @@ class CombinedPredictor:
 
         with self.torch.inference_mode():
             probability = self.torch.sigmoid(self.segmentation_model(tensor)).float()
-            if bool(self.segmentation_config.get("tta", True)):
+            if use_tta is None:
+                use_tta = bool(self.segmentation_config.get("tta", True)) and not self.fast_mode
+            if use_tta:
                 mirrored = self.torch.sigmoid(
                     self.segmentation_model(self.torch.flip(tensor, dims=[3]))
                 ).float()
@@ -316,44 +358,6 @@ class CombinedPredictor:
             "mask_data_url": _png_data_url(mask_image),
             "overlay_data_url": _png_data_url(overlay),
         }
-
-    def _gradcam(self, image: Image.Image, class_code: str) -> dict:
-        """Class-specific Grad-CAM using real gradients of the pre-softmax logit."""
-        size = int(self.classification_config["taille_image"])
-        padded = ImageOps.pad(image, (size, size), method=Image.Resampling.BILINEAR, color=(0, 0, 0))
-        tensor = self.torch.from_numpy(np.asarray(padded, dtype=np.float32).copy()[None]).requires_grad_(True)
-        target = self.classification_config["classes"].index(class_code)
-        with self.torch.enable_grad():
-            features, head = self.classification_cam_model(tensor, training=False)
-            final_layer = self.classification_model.get_layer("classes")
-            logits = head @ final_layer.kernel.value + final_layer.bias.value
-            gradients = self.torch.autograd.grad(logits[0, target], features)[0]
-            weights = gradients.mean(dim=(1, 2), keepdim=True)
-            activation = self.torch.relu((weights * features).sum(dim=-1))[0]
-            peak = float(activation.max().detach().cpu())
-            normalized = activation / max(peak, 1e-12)
-            heat = normalized.detach().cpu().numpy()
-
-        # Match PIL's exact pad geometry, rather than stretching the padded CAM.
-        contained = ImageOps.contain(image, (size, size), method=Image.Resampling.BILINEAR)
-        geometry = {
-            "height": image.height, "width": image.width,
-            "top": round((size - contained.height) / 2),
-            "left": round((size - contained.width) / 2),
-            "new_height": contained.height, "new_width": contained.width,
-        }
-        heat = cv2.resize(heat, (size, size), interpolation=cv2.INTER_LINEAR)
-        heat = _restore_probability(heat, geometry)
-        colored = cv2.cvtColor(cv2.applyColorMap(np.round(heat * 255).astype(np.uint8), cv2.COLORMAP_TURBO), cv2.COLOR_BGR2RGB)
-        alpha = heat[..., None] * 0.55
-        original = np.asarray(image, dtype=np.float32)
-        overlay = np.clip(original * (1 - alpha) + colored.astype(np.float32) * alpha, 0, 255).astype(np.uint8)
-        return {
-            "class_code": class_code, "layer": "gradcam_features", "method": "Grad-CAM sur logit",
-            "available": peak > 1e-12,
-            "overlay_data_url": _png_data_url(overlay), "heatmap_data_url": _png_data_url(colored),
-        }
-
 
 def normalize_uploaded_image(payload: bytes) -> Image.Image:
     """Validate and normalize an uploaded image without keeping it on disk."""

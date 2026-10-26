@@ -34,6 +34,7 @@ def create_app(test_config: dict | None = None, predictor=None) -> Flask:
             project_root / "segmentation_package" / "selection.json"
         ),
         INFERENCE_DEVICE=os.getenv("INFERENCE_DEVICE", "cpu"),
+        FAST_INFERENCE=os.getenv("BUSBRA_FAST_INFERENCE", "0") == "1",
         DATA_DIR=os.getenv("BUSBRA_DATA_DIR", str(project_root / "instance")),
         BOOTSTRAP_ADMIN_PASSWORD=os.getenv("BUSBRA_ADMIN_PASSWORD"),
         PRODUCTION=os.getenv("BUSBRA_PRODUCTION", "0") == "1",
@@ -89,6 +90,7 @@ def create_app(test_config: dict | None = None, predictor=None) -> Flask:
             segmentation_model_path=app.config["SEGMENTATION_MODEL_PATH"],
             segmentation_selection_path=app.config["SEGMENTATION_SELECTION_PATH"],
             device=app.config["INFERENCE_DEVICE"],
+            fast_mode=app.config["FAST_INFERENCE"],
         )
 
     app.extensions["combined_predictor"] = predictor
